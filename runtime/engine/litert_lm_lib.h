@@ -118,6 +118,7 @@ struct LiteRtLmSettings {
   std::optional<std::string> score_target_text = std::nullopt;
   bool gpu_madvise_original_shared_tensors = true;
   bool gpu_enable_metal_residency_set = false;
+  bool gpu_use_ir_model = false;
   bool disable_cache = false;
   bool disable_weight_cache = false;
   bool disable_gpu_program_cache = false;

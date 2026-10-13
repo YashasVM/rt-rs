@@ -138,6 +138,8 @@ absl::Status MainHelper(int argc, char** argv) {
   if (visual_token_budget > 0) {
     engine_settings.SetMaxVisionTokensPerImage(visual_token_budget);
   }
+  engine_settings.GetMutableMainExecutorSettings().SetUseIrModel(
+      absl::GetFlag(FLAGS_gpu_use_ir_model));
 
   if (backend == Backend::CPU) {
     auto& executor_settings = engine_settings.GetMutableMainExecutorSettings();

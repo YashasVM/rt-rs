@@ -207,3 +207,5 @@ ABSL_FLAG(bool, gpu_enable_metal_residency_set, false,
           "model weigths from being swapped out from memory. Note that it will "
           "increase the memory pressure for other applications and may cause "
           "others' crash with out-of-memory failures.");
+ABSL_FLAG(bool, gpu_use_ir_model, false,
+          "If true, use the IR model path on the GPU backend.");

@@ -357,6 +357,7 @@ absl::StatusOr<Options> CreateCompilationOptions(const ModelOptions& options,
     gpu_compilation_options.SetMadviseOriginalSharedTensors(true);
     gpu_compilation_options.SetConvertWeightsOnGpu(true);
     gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(true);
+    gpu_compilation_options.SetUseIrModel(false);
     for (const auto& pattern : options.external_tensor_patterns) {
       gpu_compilation_options.AddExternalTensorPattern(pattern.c_str());
       gpu_compilation_options.AddBufferStorageTensorPattern(pattern.c_str());

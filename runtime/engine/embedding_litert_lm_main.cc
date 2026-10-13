@@ -117,6 +117,7 @@ absl::Status MainHelper(int argc, char** argv) {
   settings.num_cpu_threads = absl::GetFlag(FLAGS_num_cpu_threads);
   settings.lazy_load_multimodal_encoders =
       absl::GetFlag(FLAGS_lazy_load_multimodal_encoders);
+  settings.gpu_use_ir_model = absl::GetFlag(FLAGS_gpu_use_ir_model);
 
   return litert::lm::RunEmbedding(settings);
 }

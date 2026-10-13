@@ -603,6 +603,28 @@ TEST(LiteRtLmLibTest, CreateEngineSettings_DisableWeightCache) {
       engine_settings.GetAudioExecutorSettings()->IsProgramCacheDisabled());
 }
 
+TEST(LiteRtLmLibTest, CreateEngineSettings_GpuUseIrModel) {
+  const auto model_path =
+      std::filesystem::path(::testing::SrcDir()) /
+      "litert_lm/runtime/testdata/test_lm.litertlm";
+  LiteRtLmSettings settings;
+  settings.model_path = model_path.string();
+  settings.backend = "gpu";
+  settings.vision_backend = "gpu";
+  settings.audio_backend = "gpu";
+  settings.gpu_use_ir_model = true;
+
+  auto engine_settings_or = CreateEngineSettings(settings);
+  ASSERT_OK(engine_settings_or.status());
+  const auto& engine_settings = *engine_settings_or;
+
+  EXPECT_TRUE(engine_settings.GetMainExecutorSettings().UseIrModel());
+  ASSERT_TRUE(engine_settings.GetVisionExecutorSettings().has_value());
+  EXPECT_TRUE(engine_settings.GetVisionExecutorSettings()->UseIrModel());
+  ASSERT_TRUE(engine_settings.GetAudioExecutorSettings().has_value());
+  EXPECT_TRUE(engine_settings.GetAudioExecutorSettings()->UseIrModel());
+}
+
 TEST(LiteRtLmLibTest, CreateEngineSettings_CpuConfig) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /

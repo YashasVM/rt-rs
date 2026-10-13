@@ -72,6 +72,9 @@ TEST(EmbeddingLiteRtLmLibTest, SetEmbeddingFlagSuccess) {
 
   EXPECT_TRUE(SetEmbeddingFlag(&settings, "num_iterations", "5").ok());
   EXPECT_EQ(settings.num_iterations, 5);
+
+  EXPECT_TRUE(SetEmbeddingFlag(&settings, "gpu_use_ir_model", "true").ok());
+  EXPECT_TRUE(settings.gpu_use_ir_model);
 }
 
 TEST(EmbeddingLiteRtLmLibTest, SetEmbeddingFlagInvalidInteger) {

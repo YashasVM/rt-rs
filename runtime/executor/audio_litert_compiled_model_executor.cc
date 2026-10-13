@@ -644,6 +644,7 @@ absl::Status AudioLiteRtCompiledModelExecutor::AudioAdapter::Initialize() {
     gpu_options.EnableConstantTensorSharing(true);
     gpu_options.SetPrecision(GpuOptions::Precision::kFp32);
     gpu_options.SetPreferTextureWeights(true);
+    gpu_options.SetUseIrModel(executor_settings_.UseIrModel());
 #if defined(LITERT_USE_WEBGPU_ACCELERATOR)
     gpu_options.SetBackend(GpuOptions::Backend::kWebGpu);
 #endif  // defined(LITERT_USE_WEBGPU_ACCELERATOR)

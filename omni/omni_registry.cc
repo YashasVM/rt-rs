@@ -206,6 +206,7 @@ absl::Status ConfigureLiteRtOptions(absl::string_view model_name,
                             options.GetOptions<::litert::GpuOptions>());
     gpu_options.SetPrecision(::litert::GpuOptions::Precision::kFp32);
     gpu_options.EnableConstantTensorSharing(true);
+    gpu_options.SetUseIrModel(false);
     ABSL_RETURN_IF_ERROR(
         ConfigureGpuModelCache(model_name, cache, gpu_options));
   } else if (settings.backend == OmniEngine::Settings::Backend::kNpu) {

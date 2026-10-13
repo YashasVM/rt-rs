@@ -55,6 +55,7 @@ struct EmbeddingLiteRtLmSettings {
   bool report_peak_memory_footprint = false;
   int num_cpu_threads = 0;
   bool lazy_load_multimodal_encoders = true;
+  bool gpu_use_ir_model = false;
 };
 
 // Runs the embedding pipeline with the given `settings` and reports the result.

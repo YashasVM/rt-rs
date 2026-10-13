@@ -1048,6 +1048,7 @@ absl::Status SetCommonGpuOptions(
 #endif  // !__APPLE__
   gpu_options.SetMadviseOriginalSharedTensors(true);
   gpu_options.SetConvertWeightsOnGpu(true);
+  gpu_options.SetUseIrModel(executor_settings.UseIrModel());
   return absl::OkStatus();
 }
 

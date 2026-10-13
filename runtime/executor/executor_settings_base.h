@@ -334,6 +334,9 @@ class ExecutorSettingsBase {
   bool IsWeightCacheDisabled() const { return disable_weight_cache_; }
   bool IsProgramCacheDisabled() const { return disable_program_cache_; }
 
+  void SetUseIrModel(bool use_ir_model) { use_ir_model_ = use_ir_model; }
+  bool UseIrModel() const { return use_ir_model_; }
+
  protected:
   explicit ExecutorSettingsBase(ModelAssets model_assets)
       : model_assets_(std::move(model_assets)) {}
@@ -379,6 +382,7 @@ class ExecutorSettingsBase {
 
   bool disable_weight_cache_ = false;
   bool disable_program_cache_ = false;
+  bool use_ir_model_ = false;
 };
 
 }  // namespace litert::lm
