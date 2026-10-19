@@ -8,3 +8,5 @@ __pycache__/
 /ffi/target/
 /native-results.json
 /native-main-results.json
+
+/greedy-benchmark-results.json

@@ -225,6 +225,39 @@ permissions. Native differential checks are separately reproducible with the
 commands above; they are not part of this lightweight workflow. Workflow success
 does not establish model inference correctness or Android device performance.
 
+## Representative greedy profiling
+
+`benchmark_greedy.py` separates build/parity work from timing:
+
+```sh
+python3 rust-port/benchmark_greedy.py --phase build
+python3 rust-port/benchmark_greedy.py --phase run
+```
+
+It uses vocabulary sizes 32,768 / 131,072 / 262,144, batch 1 / 4, and sequence
+1 / 8. These are representative shapes, not a tested model or device. It rotates
+candidate ordering, records five samples after two warmups, and compares index
+checksums. Finite deterministic logits are used for timings; the separate
+11,481-case parity suite retains NaN/tie edge coverage.
+
+The first profile (`benchmarks/cloud-greedy-profile.json`) finds the Rust
+reduction 1.29–3.14 times faster than GCC C++ reduction across these twelve
+shapes. Examples: 32,768 vocabulary, batch/sequence 1/1, 6.00 to 1.91 microseconds
+per position; 262,144 vocabulary, 1/1, 41.62 to 17.04 microseconds. This compares
+GCC 14 with Rust's LLVM, not matched compiler backends. It is not proof of a
+language-intrinsic, Android, integrated runtime or inference improvement.
+
+The native full greedy sampling path additionally flattens top IDs, computes
+softmax and allocates temporary probabilities/maxima before returning scores of
+one. A separately instrumented allocation diagnostic counts 16 ordinary C++
+`new` calls / 164 requested bytes for its first batch/sequence 1/1 call, versus
+3 / 32 for reduction alone, excluding preallocated logits/RNG. Instrumentation
+is absent from timing binaries and is not a complete allocator profiler.
+Full-sampling versus reduction timings are close/noisy relative to the large
+vocabulary scan: allocation removal alone is not established as the primary
+bottleneck. Next test whether the measured reduction advantage survives a real
+native boundary before broadening or selecting a Rust backend.
+
 ## Standalone native-adapter experiment
 
 `ffi/` isolates the unsafe C ABI from the safe core. `native/` implements a
