@@ -51,3 +51,29 @@ still need preservation. No score API is promised by the standalone adapter.
 Current component timings use GCC for C++ and Rust's LLVM backend on a shared
 x86_64 cloud host without affinity/thermal controls. They motivate a bounded
 boundary experiment, not a claim that Rust or LiteRT-LM inference is faster.
+
+## Hosted baseline experiment
+
+`.github/workflows/rust-sampler-baseline.yml` runs the existing real
+`//runtime/components:top_p_cpu_sampler_test` on a standard Ubuntu 24.04 hosted
+runner, bounded to 60 minutes, two jobs and 6144 MB Bazel local RAM resources.
+It uses supported LiteRT `build_include=cpu_only`, not runtime stubs. The initial
+trigger is only changes to this workflow on the existing Rust branch, avoiding
+an expensive rebuild on every unrelated port checkpoint. Checkout is SHA-pinned,
+credentials are not persisted, permissions are contents-read only, and no models,
+secrets, remote caches, artifacts or larger/paid runners are requested.
+
+The preinstalled official runner Bazelisk honors repository `.bazelversion`
+7.6.1; dependency archive pins remain upstream's WORKSPACE pins. The hosted OS,
+Clang and launcher are image-managed rather than hermetically pinned, so actual
+versions are printed. Standard public-repository runner execution is free per
+GitHub documentation; repository visibility was verified public before setup.
+Its documented 14 GB SSD does not guarantee this dependency build will fit.
+The test reaches LiteRT CPU runtime implementation transitively despite needing
+no model. Success/failure must be reported, not hidden with alternate stubs.
+This baseline does not enable Rust in the actual sampler and is not inference.
+
+Sources checked 2026-10-19:
+- https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+- https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
+- https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/install-bazel.sh

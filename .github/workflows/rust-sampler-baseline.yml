@@ -1,0 +1,61 @@
+name: Rust port native sampler baseline
+
+on:
+  push:
+    branches: [rust/stop-token-detector-v0.18.0]
+    paths: [.github/workflows/rust-sampler-baseline.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-sampler-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-sampler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BAZELISK_HOME: ${{ runner.temp }}/rt-rs-bazelisk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified 2026-10-19
+        with:
+          persist-credentials: false
+      - name: Verify existing hosted tools and resource budget
+        run: |
+          set -euo pipefail
+          test "$(cat .bazelversion)" = 7.6.1
+          command -v bazelisk
+          command -v clang
+          command -v clang++
+          bazelisk --version
+          clang --version
+          java -version
+          python3 --version
+          df -h
+          free -h
+      - name: Test unchanged real host TensorBuffer sampler
+        run: |
+          set -euo pipefail
+          # No model, credentials, remote cache, paid runner or runtime stubs.
+          # Keep upstream WORKSPACE pins and supported CPU-only configuration.
+          bazelisk --output_user_root="$RUNNER_TEMP/rt-rs-bazel" test \
+            --config=linux_x86_64 \
+            --@litert//litert/build_common:build_include=cpu_only \
+            --jobs=2 \
+            --local_ram_resources=6144 \
+            --test_output=errors \
+            --verbose_failures \
+            //runtime/components:top_p_cpu_sampler_test
+      - name: Report final resource use and available test log
+        if: always()
+        run: |
+          df -h
+          free -h
+          if test -d "$RUNNER_TEMP/rt-rs-bazel"; then
+            du -sh "$RUNNER_TEMP/rt-rs-bazel"
+            find "$RUNNER_TEMP/rt-rs-bazel" -type f \
+              -path '*/testlogs/runtime/components/top_p_cpu_sampler_test/test.log' \
+              -exec tail -200 {} \;
+          fi
