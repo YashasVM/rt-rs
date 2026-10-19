@@ -55,3 +55,12 @@ rust_test(
     name = "rt_rs_stop_test",
     crate = ":rt_rs_stop",
 )
+
+# The invocation test checks its forwarding signature against the real ABI.
+# Header-only: the native-OFF test must not acquire a Rust link dependency.
+cc_library(
+    name = "greedy_ffi_test_headers",
+    testonly = True,
+    hdrs = ["native/stop_ffi.h"],
+    visibility = ["//runtime/components:__pkg__"],
+)

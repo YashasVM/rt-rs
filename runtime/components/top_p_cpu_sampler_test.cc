@@ -14,12 +14,14 @@
 
 #include "runtime/components/top_p_cpu_sampler.h"
 
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <random>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -36,6 +38,31 @@
 #include "runtime/proto/sampler_params.pb.h"
 #include "runtime/util/convert_tensor_buffer.h"  // IWYU pragma: keep
 #include "tflite/types/half.h"  // from @litert
+
+// This counter is test-local and observes the ABI call, not branch eligibility.
+// Native OFF has no wrapper, __real reference, or Rust dependency; its zero
+// counts are paired with the hosted workflow's Rust-symbol absence check.
+namespace {
+std::atomic<int> rust_fp16_calls{0};
+}
+
+#if defined(LITERTLM_TEST_WRAP_RUST_FP16)
+#include "rust-port/native/stop_ffi.h"
+
+extern "C" decltype(rt_rs_greedy_fp16_token_ids)
+    __real_rt_rs_greedy_fp16_token_ids;
+
+extern "C" int32_t __wrap_rt_rs_greedy_fp16_token_ids(
+    const uint16_t* logits, size_t length, size_t batch, size_t sequence,
+    int32_t* output, size_t count) {
+  rust_fp16_calls.fetch_add(1, std::memory_order_relaxed);
+  // Never replace the computation: --wrap resolves this to the actual Rust ABI.
+  return __real_rt_rs_greedy_fp16_token_ids(logits, length, batch, sequence,
+                                          output, count);
+}
+static_assert(std::is_same_v<decltype(rt_rs_greedy_fp16_token_ids),
+                             decltype(__wrap_rt_rs_greedy_fp16_token_ids)>);
+#endif
 
 namespace litert::lm {
 namespace {
@@ -506,7 +533,7 @@ class Fp16SamplerParityTest : public testing::Test {
   void Compare(const std::vector<uint16_t>& bits, const std::vector<int>& dims,
                const std::vector<int>& ids_dims,
                const std::vector<int>& scores_dims, bool expect_ok = true,
-               bool request_scores = true) {
+               bool request_scores = true, int expected_rust_calls = -1) {
     auto half_logits = CopyFp16BitsToTensorBuffer(bits, dims);
     auto native_logits = CopyToTensorBuffer<float>(
         NativeHalfValues(bits), Dimensions(dims.begin(), dims.end()));
@@ -530,10 +557,21 @@ class Fp16SamplerParityTest : public testing::Test {
     ASSERT_TRUE(native_ids.HasValue());
     ASSERT_TRUE(half_scores.HasValue());
     ASSERT_TRUE(native_scores.HasValue());
+    const int before_half = rust_fp16_calls.load(std::memory_order_relaxed);
     const auto half_status = half_->SampleToIdAndScoreBuffer(
         *half_logits, *half_ids, request_scores ? &*half_scores : nullptr);
+    const int after_half = rust_fp16_calls.load(std::memory_order_relaxed);
+    if (expected_rust_calls >= 0) {
+#if defined(LITERTLM_TEST_WRAP_RUST_FP16)
+      EXPECT_EQ(after_half - before_half, expected_rust_calls);
+#else
+      EXPECT_EQ(after_half - before_half, 0);
+#endif
+    }
     const auto native_status = native_->SampleToIdAndScoreBuffer(
         *native_logits, *native_ids, request_scores ? &*native_scores : nullptr);
+    EXPECT_EQ(rust_fp16_calls.load(std::memory_order_relaxed), after_half)
+        << "FP32 reference must never call the Rust FP16 ABI";
     EXPECT_EQ(native_status.ok(), expect_ok) << native_status;
     EXPECT_EQ(half_status.code(), native_status.code());
     EXPECT_EQ(half_status.message(), native_status.message());
@@ -576,6 +614,62 @@ class Fp16SamplerParityTest : public testing::Test {
   std::vector<TensorBuffer> retained_ids_;
   std::vector<TensorBuffer> retained_scores_;
 };
+
+TEST_F(Fp16SamplerParityTest, ActualRustAbiInvocationAndNativeFallbacks) {
+#if !defined(LITERTLM_TEST_LINUX_FP16_CALL_PROOF)
+  GTEST_SKIP() << "Invocation proof requires the Linux GNU-compatible --wrap linker";
+#else
+  ASSERT_NO_FATAL_FAILURE(Reset());
+  const std::vector<uint16_t> bits = {0x0000, 0x3c00, 0x4000, 0x4200};
+  // Compare snapshots the FP16 call separately from its FP32 native oracle.
+  // Each eligible call must enter the real Rust ABI exactly once when enabled.
+  for (float temperature : {0.0f, 1.0f}) {
+    ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, temperature));
+    ASSERT_NO_FATAL_FAILURE(
+        Compare(bits, {1, 4}, {1}, {1}, true, true, 1));
+    ASSERT_NO_FATAL_FAILURE(
+        Compare(bits, {1, 4}, {1}, {1}, true, false, 1));
+  }
+  ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, 1.0f, true));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, true, true, 0));
+  // Exact-score configuration is still eligible when no scores are requested.
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, true, false, 1));
+  for (float temperature : {0.0f, 1.0f}) {
+    ASSERT_NO_FATAL_FAILURE(Configure(2, 0.8f, temperature));
+    ASSERT_NO_FATAL_FAILURE(
+        Compare(bits, {1, 4}, {1}, {1}, true, true, 0));
+  }
+  // UpdateConfig accepts these configs; sampling must keep native validation.
+  ASSERT_NO_FATAL_FAILURE(Configure(0, 1.0f, 1.0f));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, false, true, 0));
+  ASSERT_NO_FATAL_FAILURE(Configure(1, -0.1f, 1.0f));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, false, true, 0));
+  ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, -1.0f));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, false, true, 0));
+  ASSERT_NO_FATAL_FAILURE(
+      Configure(1, std::numeric_limits<float>::quiet_NaN(), 1.0f));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {1}, true, true, 0));
+  ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, 1.0f));
+  // Bad logits/IDs are rejected before sampling. Bad scores are checked after
+  // sampling and therefore must not suppress an otherwise eligible ABI call.
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {2, 2}, {1}, {1}, false, true, 0));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {2}, {1}, false, true, 0));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare(bits, {1, 4}, {1}, {2}, false, true, 1));
+  ASSERT_NO_FATAL_FAILURE(Reset(1, 2));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare({0x0000, 0x3c00, 0x4000}, {1, 3}, {1, 2}, {1, 2},
+              false, true, 0));
+#endif
+}
 
 TEST_F(Fp16SamplerParityTest, RawBitsNaNsSignedZerosTiesAndInfinities) {
   ASSERT_NO_FATAL_FAILURE(Reset());

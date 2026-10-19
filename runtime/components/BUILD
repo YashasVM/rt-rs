@@ -201,9 +201,33 @@ cc_library(
     }),
 )
 
+# GNU-compatible --wrap is scoped to this Linux test binary, never consumers.
+config_setting(
+    name = "sampler_call_proof_linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+config_setting(
+    name = "sampler_call_proof_linux_rust",
+    constraint_values = ["@platforms//os:linux"],
+    define_values = {"rt_rs_fp16_greedy": "true"},
+)
+
 cc_test(
     name = "top_p_cpu_sampler_test",
     srcs = ["top_p_cpu_sampler_test.cc"],
+    local_defines = select({
+        ":sampler_call_proof_linux_rust": [
+            "LITERTLM_TEST_LINUX_FP16_CALL_PROOF",
+            "LITERTLM_TEST_WRAP_RUST_FP16",
+        ],
+        ":sampler_call_proof_linux": ["LITERTLM_TEST_LINUX_FP16_CALL_PROOF"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        ":sampler_call_proof_linux_rust": ["-Wl,--wrap=rt_rs_greedy_fp16_token_ids"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":top_p_cpu_sampler",
         "@com_google_googletest//:gtest_main",
@@ -218,7 +242,10 @@ cc_test(
         "//runtime/proto:sampler_params_cc_proto",
         "//runtime/util:convert_tensor_buffer",
         "@litert//tflite/types:half",
-    ],
+    ] + select({
+        ":sampler_call_proof_linux_rust": ["//rust-port:greedy_ffi_test_headers"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(

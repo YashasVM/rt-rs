@@ -124,3 +124,37 @@ No model was loaded or sampling invocation established by help. Android, CMake a
 model/device performance remain separate gates. See the future
 [device validation protocol](DEVICE_VALIDATION.md) for paired correctness,
 actual path invocation and end-to-end measurements.
+
+## Test-only ABI invocation gate (validation pending)
+
+The real sampler test now contains `ActualRustAbiInvocationAndNativeFallbacks`.
+On Linux with the Rust option enabled, only that test executable links with
+GNU-compatible `--wrap=rt_rs_greedy_fp16_token_ids`. Its test-local counter
+increments at the C ABI boundary and forwards every argument and return value
+unchanged through `__real_rt_rs_greedy_fp16_token_ids` to the genuine Rust code.
+The wrapper signature is checked against the existing ABI header. No sampler,
+shipping library, ABI, default setting, or engine link option is instrumented.
+
+The positive control requires exactly one call for eligible FP16 k=1 sampling,
+with/without approximate scores, at zero/nonzero temperature, and with the
+exact-score flag set but no score output requested. Separate snapshots require
+zero calls for the FP32 oracle and FP16 exact-score output, non-k1, invalid
+configuration, and early invalid-shape/native-validation fallback cases. Invalid
+score output shape deliberately still requires a call, since score validation
+occurs after sampling and ID writes in the native contract. Existing paired
+status/output/RNG/ownership checks remain in place.
+
+Native OFF does not define or link the wrapper or `__real` reference and does
+not acquire a Rust dependency. Its zero test counter is not an observation of
+an absent function: the existing hosted binary-symbol absence gate establishes
+that complementary fact. The enabled positive-control assertion ensures the
+instrumentation is non-vacuous. Other platforms explicitly skip this invocation
+proof while retaining all existing parity tests; this is not an Android or
+non-GNU-compatible linker claim.
+
+A lightweight cloud smoke extracted the exact wrapper into a separate-TU caller,
+linked it with the existing genuine Rust static archive, and verified one call,
+the expected ID, and both defined wrapper/real symbols. That validates the
+linker seam only. The full 20-test real TensorBuffer OFF/ON hosted matrix is
+still required; no result from that new matrix is claimed here. No model was
+loaded, and this does not establish model/device invocation or performance.
