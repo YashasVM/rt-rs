@@ -1,0 +1,30 @@
+{
+  "commit": "67c07f1517553785b599d239412922c9f7a5986e",
+  "run_url": "https://github.com/YashasVM/rt-rs/actions/runs/39326962690",
+  "job_id": 118315187016,
+  "conclusion": "success",
+  "gtest_tests": 12,
+  "bazel_targets": 1,
+  "bazel_elapsed_seconds": 2038.37,
+  "bazel_actions": 4745,
+  "output_directory_size": "7.1G",
+  "scope": "Unchanged native real managed-host TensorBuffer sampler, no model or Rust engine hook",
+  "selected_log_lines": [
+    "2026-10-19T21:22:28.1238626Z Version: 20261015.610",
+    "2026-10-19T21:22:28.1256160Z Image: ubuntu-24.04",
+    "2026-10-19T21:22:28.1257370Z Version: 20261018.339.1",
+    "2026-10-19T21:22:46.9080850Z bazel 7.6.1",
+    "2026-10-19T21:22:47.2153839Z Ubuntu clang version 18.1.3 (1ubuntu1)",
+    "2026-10-19T21:22:52.5373231Z /dev/root       145G   60G   85G  42% /",
+    "2026-10-19T21:22:52.5392294Z Mem:            15Gi       993Mi        11Gi        43Mi       3.3Gi        14Gi",
+    "2026-10-19T21:22:52.5392675Z Swap:          3.0Gi          0B       3.0Gi",
+    "2026-10-19T21:23:15.1481581Z Version: \"3.13\"",
+    "2026-10-19T21:56:51.1020785Z INFO: Elapsed time: 2038.370s, Critical Path: 35.31s",
+    "2026-10-19T21:56:51.1509662Z /dev/root       145G   67G   78G  47% /",
+    "2026-10-19T21:56:51.1532137Z Mem:            15Gi       2.5Gi       1.9Gi        48Mi        11Gi        13Gi",
+    "2026-10-19T21:56:51.1532973Z Swap:          3.0Gi          0B       3.0Gi",
+    "2026-10-19T21:56:52.4432464Z 7.1G\t/home/runner/work/_temp/rt-rs-bazel",
+    "2026-10-19T21:56:53.2302276Z [==========] Running 12 tests from 1 test suite.",
+    "2026-10-19T21:56:53.2329130Z [  PASSED  ] 12 tests."
+  ]
+}

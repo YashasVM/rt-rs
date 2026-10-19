@@ -18,6 +18,8 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -444,6 +446,321 @@ TEST(TopPSamplerTest, SampleToIdAndScoreBuffer_ExactLogProbsViaCreate) {
   auto scores = CopyFromTensorBuffer<float>(*scores_tensor);
   ASSERT_TRUE(scores.HasValue());
   EXPECT_THAT(*scores, ElementsAre(FloatNear(-0.44018677f, 1e-5)));
+}
+
+
+// Keep these tests unconditional: the same real TensorBuffer contract must hold
+// with the native build and with --define=rt_rs_fp16_greedy=true. The FP32
+// sampler is the upstream TopKTopPSampling oracle, not a test reimplementation
+// of its nontrivial NaN/tie reduction order.
+Expected<TensorBuffer> CopyFp16BitsToTensorBuffer(
+    absl::Span<const uint16_t> bits, absl::Span<const int> dims) {
+  LITERT_ASSIGN_OR_RETURN(
+      auto tensor,
+      TensorBuffer::CreateManagedHostMemory(
+          RankedTensorType(ElementType::Float16,
+                           Layout(Dimensions(dims.begin(), dims.end()))),
+          bits.size() * sizeof(uint16_t)));
+  LITERT_RETURN_IF_ERROR(tensor.Write(bits));
+  return tensor;
+}
+
+std::vector<float> NativeHalfValues(absl::Span<const uint16_t> bits) {
+  std::vector<float> values;
+  values.reserve(bits.size());
+  for (uint16_t word : bits) {
+    tflite::half value;
+    std::memcpy(&value, &word, sizeof(word));
+    values.push_back(static_cast<float>(value));
+  }
+  return values;
+}
+
+class Fp16SamplerParityTest : public testing::Test {
+ protected:
+  void Reset(int batch_size = 1, int sequence_size = 1) {
+    batch_size_ = batch_size;
+    auto half = TopPSampler::Create(1, 1.0f, 1.0f, batch_size, sequence_size, 73);
+    auto native = TopPSampler::Create(1, 1.0f, 1.0f, batch_size, sequence_size, 73);
+    ASSERT_TRUE(half.ok());
+    ASSERT_TRUE(native.ok());
+    half_ = std::move(*half);
+    native_ = std::move(*native);
+    half_rng_ = std::make_shared<std::default_random_engine>(73);
+    native_rng_ = std::make_shared<std::default_random_engine>(73);
+    ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, 1.0f));
+  }
+
+  void Configure(int k, float p, float temperature, bool exact = false) {
+    proto::SamplerParameters params;
+    params.set_k(k);
+    params.set_p(p);
+    params.set_temperature(temperature);
+    params.set_compute_exact_log_probs(exact);
+    ASSERT_TRUE(half_->UpdateConfig(params, batch_size_, half_rng_).ok());
+    ASSERT_TRUE(native_->UpdateConfig(params, batch_size_, native_rng_).ok());
+  }
+
+  // Compare both successful outputs and error-time writes. In particular, the
+  // existing sampler writes IDs before validating a supplied scores tensor.
+  void Compare(const std::vector<uint16_t>& bits, const std::vector<int>& dims,
+               const std::vector<int>& ids_dims,
+               const std::vector<int>& scores_dims, bool expect_ok = true,
+               bool request_scores = true) {
+    auto half_logits = CopyFp16BitsToTensorBuffer(bits, dims);
+    auto native_logits = CopyToTensorBuffer<float>(
+        NativeHalfValues(bits), Dimensions(dims.begin(), dims.end()));
+    ASSERT_TRUE(half_logits.HasValue());
+    ASSERT_TRUE(native_logits.HasValue());
+    int ids_size = 1;
+    for (int dim : ids_dims) ids_size *= dim;
+    int scores_size = 1;
+    for (int dim : scores_dims) scores_size *= dim;
+    const std::vector<int> initial_ids(ids_size, -123);
+    const std::vector<float> initial_scores(scores_size, -123.0f);
+    auto half_ids = CopyToTensorBuffer<int>(
+        initial_ids, Dimensions(ids_dims.begin(), ids_dims.end()));
+    auto native_ids = CopyToTensorBuffer<int>(
+        initial_ids, Dimensions(ids_dims.begin(), ids_dims.end()));
+    auto half_scores = CopyToTensorBuffer<float>(
+        initial_scores, Dimensions(scores_dims.begin(), scores_dims.end()));
+    auto native_scores = CopyToTensorBuffer<float>(
+        initial_scores, Dimensions(scores_dims.begin(), scores_dims.end()));
+    ASSERT_TRUE(half_ids.HasValue());
+    ASSERT_TRUE(native_ids.HasValue());
+    ASSERT_TRUE(half_scores.HasValue());
+    ASSERT_TRUE(native_scores.HasValue());
+    const auto half_status = half_->SampleToIdAndScoreBuffer(
+        *half_logits, *half_ids, request_scores ? &*half_scores : nullptr);
+    const auto native_status = native_->SampleToIdAndScoreBuffer(
+        *native_logits, *native_ids, request_scores ? &*native_scores : nullptr);
+    EXPECT_EQ(native_status.ok(), expect_ok) << native_status;
+    EXPECT_EQ(half_status.code(), native_status.code());
+    EXPECT_EQ(half_status.message(), native_status.message());
+    EXPECT_TRUE(*half_rng_ == *native_rng_);
+
+    auto half_ids_values = CopyFromTensorBuffer<int>(*half_ids);
+    auto native_ids_values = CopyFromTensorBuffer<int>(*native_ids);
+    auto half_scores_values = CopyFromTensorBuffer<float>(*half_scores);
+    auto native_scores_values = CopyFromTensorBuffer<float>(*native_scores);
+    ASSERT_TRUE(half_ids_values.HasValue());
+    ASSERT_TRUE(native_ids_values.HasValue());
+    ASSERT_TRUE(half_scores_values.HasValue());
+    ASSERT_TRUE(native_scores_values.HasValue());
+    EXPECT_EQ(*half_ids_values, *native_ids_values);
+    ASSERT_EQ(half_scores_values->size(), native_scores_values->size());
+    for (int i = 0; i < half_scores_values->size(); ++i) {
+      if (std::isnan((*native_scores_values)[i])) {
+        EXPECT_TRUE(std::isnan((*half_scores_values)[i]));
+      } else {
+        EXPECT_FLOAT_EQ((*half_scores_values)[i], (*native_scores_values)[i]);
+      }
+    }
+    ids_ = *half_ids_values;
+    scores_ = *half_scores_values;
+    // The input must remain bit-identical, including signaling NaN payloads.
+    std::vector<uint16_t> after(bits.size());
+    ASSERT_TRUE(half_logits->Read(absl::MakeSpan(after)).HasValue());
+    EXPECT_EQ(after, bits);
+    retained_ids_.push_back(std::move(*half_ids));
+    retained_scores_.push_back(std::move(*half_scores));
+  }
+
+  int batch_size_ = 1;
+  std::unique_ptr<TopPSampler> half_;
+  std::unique_ptr<TopPSampler> native_;
+  std::shared_ptr<std::default_random_engine> half_rng_;
+  std::shared_ptr<std::default_random_engine> native_rng_;
+  std::vector<int> ids_;
+  std::vector<float> scores_;
+  std::vector<TensorBuffer> retained_ids_;
+  std::vector<TensorBuffer> retained_scores_;
+};
+
+TEST_F(Fp16SamplerParityTest, RawBitsNaNsSignedZerosTiesAndInfinities) {
+  ASSERT_NO_FATAL_FAILURE(Reset());
+  const std::vector<std::vector<uint16_t>> cases = {
+      {0x8000, 0x0000, 0xbc00},  // Equal signed zeros retain the first ID.
+      {0x0000, 0x8000, 0xbc00},
+      {0x3c00, 0x4000, 0x4000},
+      {0x7e01, 0x7c00, 0x4000},  // NaN first element pins native ID to zero.
+      {0xfe55, 0x4000, 0x7c00},
+      {0x7c01, 0x4000, 0x3c00},  // Signaling NaN is supplied as raw bits.
+      {0xbc00, 0x7e01, 0x4000},
+      {0xfc00, 0x7c00, 0x7c00},
+      {0xfc00, 0xfc00, 0xfc00},
+      {0x8001, 0x0000, 0x0001},  // Subnormal ordering.
+      {0xfbff, 0x7bff, 0x7bff}};
+  for (const auto& bits : cases) {
+    SCOPED_TRACE(testing::PrintToString(bits));
+    for (float temperature : {0.0f, 1.0f}) {
+      ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, temperature));
+      const auto rng_before = *half_rng_;
+      ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 3}, {1}, {1}));
+      EXPECT_THAT(scores_, ElementsAre(0.0f));
+      EXPECT_TRUE(*half_rng_ == rng_before);
+      const auto scored_ids = ids_;
+      ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 3}, {1}, {1}, true, false));
+      EXPECT_EQ(ids_, scored_ids);
+      EXPECT_TRUE(*half_rng_ == rng_before);
+    }
+  }
+}
+
+TEST_F(Fp16SamplerParityTest, TileBoundariesAndNaNMaskedLanes) {
+  ASSERT_NO_FATAL_FAILURE(Reset(/*batch_size=*/2, /*sequence_size=*/2));
+  for (int size : {7, 8, 9, 127, 128, 129, 255, 256, 257}) {
+    SCOPED_TRACE(size);
+    std::vector<uint16_t> bits(4 * size, 0xbc00);
+    // Four independent rows exercise tails, lane masks, and equality search.
+    bits[size - 1] = 0x4000;
+    bits[size + 1] = 0x7e01;
+    bits[2 * size - 1] = 0x4200;
+    bits[2 * size] = 0x7c01;
+    bits[3 * size - 1] = 0x7c00;
+    bits[3 * size + 1] = 0x4000;
+    bits[4 * size - 1] = 0x4000;
+    if (size >= 128) {
+      bits[size + 9] = 0x7bff;  // Masked by the NaN at lane one.
+      bits[size + 10] = 0x4200;
+    }
+    if (size >= 256) {
+      bits[128] = 0x7e01;  // NaN at lane zero masks the second full tile.
+      bits[129] = 0x7c00;
+    }
+    ASSERT_NO_FATAL_FAILURE(Compare(bits, {2, 2, size}, {2, 2}, {2, 2}));
+    EXPECT_THAT(scores_, ElementsAre(0.0f, 0.0f, 0.0f, 0.0f));
+  }
+  // Native equality search can select a value in a masked lane if an unmasked
+  // lane supplies the same maximum. A scalar argmax would miss other cases.
+  ASSERT_NO_FATAL_FAILURE(Reset());
+  std::vector<uint16_t> bits(128, 0xbc00);
+  bits[1] = 0x7e01;
+  bits[9] = 0x4000;
+  bits[10] = 0x4000;
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 128}, {1}, {1}));
+  EXPECT_THAT(ids_, ElementsAre(9));
+}
+
+TEST_F(Fp16SamplerParityTest, ExactScoresMatchNativeFullVocabularyFallback) {
+  ASSERT_NO_FATAL_FAILURE(Reset(/*batch_size=*/2, /*sequence_size=*/2));
+  const std::vector<uint16_t> bits = {
+      0x0000, 0x3c00, 0x4000, 0x4200, 0xbc00, 0x0000, 0x3800, 0x3c00,
+      0x4000, 0x4000, 0x3c00, 0x0000, 0x7c00, 0x3c00, 0xfc00, 0x0000};
+  for (float temperature : {0.0f, 0.5f, 1.0f, 2.0f}) {
+    SCOPED_TRACE(temperature);
+    ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, temperature, true));
+    const auto rng_before = *half_rng_;
+    ASSERT_NO_FATAL_FAILURE(Compare(bits, {2, 2, 4}, {2, 2}, {2, 2}));
+    EXPECT_LT(scores_[0], 0.0f);  // Must not accidentally emit approximate zero.
+    EXPECT_TRUE(*half_rng_ == rng_before);
+    if (temperature == 0.0f) EXPECT_NEAR(scores_[0], -0.44018677f, 1e-5f);
+    // Exact mode alone must not prevent ID-only calls from working.
+    ASSERT_NO_FATAL_FAILURE(
+        Compare(bits, {2, 2, 4}, {2, 2}, {2, 2}, true, false));
+  }
+}
+
+TEST_F(Fp16SamplerParityTest, NonGreedyFallbackPreservesSeededRandomState) {
+  ASSERT_NO_FATAL_FAILURE(Reset(/*batch_size=*/2, /*sequence_size=*/2));
+  const std::vector<uint16_t> bits = {
+      0x0000, 0x3400, 0x3800, 0x3c00, 0x3c00, 0x3800, 0x3400, 0x0000,
+      0x3400, 0x3800, 0x3c00, 0x0000, 0x3800, 0x0000, 0x3c00, 0x3400};
+  const auto initial_rng = *half_rng_;
+  for (int k : {2, 4}) {
+    for (float temperature : {0.0f, 1.0f}) {
+      ASSERT_NO_FATAL_FAILURE(Configure(k, 0.8f, temperature));
+      for (int draw = 0; draw < 16; ++draw) {
+        SCOPED_TRACE(draw);
+        ASSERT_NO_FATAL_FAILURE(Compare(bits, {2, 2, 4}, {2, 2}, {2, 2}));
+      }
+    }
+  }
+  EXPECT_FALSE(*half_rng_ == initial_rng);
+}
+
+TEST_F(Fp16SamplerParityTest, InvalidAndNonfiniteConfigsMatchNativeStatus) {
+  ASSERT_NO_FATAL_FAILURE(Reset());
+  struct Config {
+    int k;
+    float p;
+    float temperature;
+    bool valid;
+  };
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  const float inf = std::numeric_limits<float>::infinity();
+  for (const auto& config : std::vector<Config>{
+           {0, 1.0f, 1.0f, false}, {1, -0.1f, 1.0f, false},
+           {1, 1.1f, 1.0f, false}, {1, 1.0f, -1.0f, false},
+           {1, inf, 1.0f, false}, {1, 1.0f, -inf, false},
+           {1, nan, 1.0f, true}, {1, 1.0f, nan, true},
+           {1, 1.0f, inf, true}, {1, 0.0f, 0.0f, true}}) {
+    SCOPED_TRACE(testing::Message() << "k=" << config.k << " p=" << config.p
+                                  << " temperature=" << config.temperature);
+    ASSERT_NO_FATAL_FAILURE(
+        Configure(config.k, config.p, config.temperature));
+    const auto rng_before = *half_rng_;
+    ASSERT_NO_FATAL_FAILURE(Compare({0x0000, 0x3c00, 0x4000, 0x4200},
+                                   {1, 4}, {1}, {1}, config.valid));
+    EXPECT_TRUE(*half_rng_ == rng_before);
+    if (!config.valid) {
+      // Invalid sampling config wins over invalid scores shape, because the
+      // native implementation samples before validating the scores tensor.
+      ASSERT_NO_FATAL_FAILURE(Compare({0x0000, 0x3c00, 0x4000, 0x4200},
+                                     {1, 4}, {1}, {2}, false));
+      EXPECT_THAT(ids_, ElementsAre(-123));
+    }
+  }
+  ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, 1.0f));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare({0x0000, 0x3c00, 0x4000, 0x4200}, {1, 4}, {1}, {1}));
+  EXPECT_THAT(ids_, ElementsAre(3));
+}
+
+TEST_F(Fp16SamplerParityTest, InvalidShapesAndErrorTimeWritesMatchNative) {
+  ASSERT_NO_FATAL_FAILURE(Reset(/*batch_size=*/1, /*sequence_size=*/2));
+  ASSERT_NO_FATAL_FAILURE(
+      Compare({0x0000, 0x3c00, 0x4000}, {1, 3}, {1, 2}, {1, 2}, false));
+  const std::vector<uint16_t> bits(16, 0x3c00);
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {2, 8}, {1, 2}, {1, 2}, false));
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 2, 2, 2}, {1, 2}, {1, 2}, false));
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 8}, {2}, {1, 2}, false));
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 8}, {1, 2, 2, 2}, {1, 2}, false));
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 8}, {1, 2}, {2}, false));
+  EXPECT_THAT(ids_, ElementsAre(0, 0));  // IDs precede score validation.
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 8}, {1, 2}, {1, 2, 2, 2}, false));
+  EXPECT_THAT(ids_, ElementsAre(0, 0));
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 2, 8}, {1, 2}, {1, 2}));
+}
+
+TEST_F(Fp16SamplerParityTest, ConfigTransitionsAndOutputOwnership) {
+  ASSERT_NO_FATAL_FAILURE(Reset());
+  const std::vector<uint16_t> bits = {0x0000, 0x3c00, 0x4000, 0x4200};
+  ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 4}, {1}, {1}));
+  for (int iteration = 0; iteration < 8; ++iteration) {
+    SCOPED_TRACE(iteration);
+    ASSERT_NO_FATAL_FAILURE(Configure(4, 0.9f, 1.0f));
+    ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 4}, {1}, {1}));
+    ASSERT_NO_FATAL_FAILURE(Configure(1, 1.0f, 0.0f, true));
+    ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 4}, {1}, {1}));
+    EXPECT_LT(scores_[0], 0.0f);
+    ASSERT_NO_FATAL_FAILURE(Configure(1, 0.5f, 1.0f));
+    const auto rng_before = *half_rng_;
+    ASSERT_NO_FATAL_FAILURE(Compare(bits, {1, 4}, {1}, {1}));
+    EXPECT_THAT(ids_, ElementsAre(3));
+    EXPECT_THAT(scores_, ElementsAre(0.0f));
+    EXPECT_TRUE(*half_rng_ == rng_before);
+  }
+  // All input tensors have already been destroyed. Later calls and sampler
+  // destruction must not invalidate or overwrite caller-owned earlier outputs.
+  half_.reset();
+  native_.reset();
+  auto first_ids = CopyFromTensorBuffer<int>(retained_ids_.front());
+  auto first_scores = CopyFromTensorBuffer<float>(retained_scores_.front());
+  ASSERT_TRUE(first_ids.HasValue());
+  ASSERT_TRUE(first_scores.HasValue());
+  EXPECT_THAT(*first_ids, ElementsAre(3));
+  EXPECT_THAT(*first_scores, ElementsAre(0.0f));
 }
 
 }  // namespace

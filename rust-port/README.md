@@ -37,7 +37,8 @@ The detector is a separate Bazel target `//runtime/components:stop_token_detecto
 and CMake target `LiteRTLM::Runtime::Components::StopTokenDetector`.
 The pinned upstream Bazel version is `7.6.1`.
 
-This isolated crate deliberately leaves both native build graphs unchanged.
+The detector port leaves its native build graphs unchanged. A separate opt-in
+Bazel FP16 sampler path is described below; native defaults and CMake are unchanged.
 The reference harness compiles the actual pinned detector `.cc`, not a second
 handwritten implementation. Abseil supplies its original status/logging support.
 LiteRT headers are required by a transitive status-macro include. They are pinned
@@ -389,8 +390,8 @@ inputs. Including equal host allocation/copy on both sides reduces these to
 2.53–3.86x, 1.50–1.83x and 2.19–3.37x respectively. Preserve the distribution
 differences, compiler confound and raw samples in `benchmarks/cloud-half-branchless-*.json`;
 these are not language-wide or model speedups. Independent read-only review
-confirmed the mask/key equivalence. No FP16 C ABI, native engine selection or
-model/device work is added.
+confirmed the mask/key equivalence. This initial safe-core experiment added no
+FP16 C ABI; later boundary and opt-in sampler work is described below.
 
 Benchmark builds reconstruct the original variant from retained baseline tree
 `d8ffb7957f35a6ac7ecf0fbb88e58450d314044e`, so a full-history checkout is required
@@ -413,7 +414,8 @@ and exclusive disjoint index output only for the synchronous call; no pointer
 is retained. Checked shape, pointer metadata, and native index limits precede
 output writes. Unexpected panics are caught but are not an atomic-output promise.
 C++ output ownership includes a flat export buffer and nested-row copy, whose
-cost belongs in the boundary benchmark. Production sampler targets are unchanged.
+cost belongs in the boundary benchmark. The measurements below predate the
+opt-in real sampler hook and do not measure its TensorBuffer path.
 
 Run `RT_RS_HALF_FFI=1 python3 rust-port/verify_half.py` for native-boundary
 differential checks and `python3 rust-port/benchmark_half.py --ffi --phase build`
@@ -438,7 +440,30 @@ shared-host, different-compiler results, not proof of a language advantage or
 best possible C++ implementation. All candidates and raw samples remain in
 `benchmarks/cloud-half-bridge-{random,ascending,periodic}.json`; no GPU readback,
 TensorBuffer write, exact scoring, or model inference was measured. The original
-production sampler remains unchanged.
+default production sampler remains native.
+
+## Opt-in real host sampler validation
+
+The unchanged real native TensorBuffer sampler baseline passed all 12 tests in
+hosted run [39326962690](https://github.com/YashasVM/rt-rs/actions/runs/39326962690).
+Cold Bazel build took 2038.37 seconds and used 7.1 GB of output storage; actual
+runner free disk went from 85 GB to 78 GB. These observations differ from the
+conservative documented runner-capacity estimate, and are not a future guarantee.
+
+A Bazel-only experimental flag now selects the stateless Rust FP16 greedy path:
+`--define=rt_rs_fp16_greedy=true`. Default/false keeps native sampler dependencies.
+The define is local to the sampler translation unit, with explicit Rust static
+library linkage, no class-layout change, and no CMake option. It applies only to
+valid FP16 k=1 inputs without requested exact-log-probability scoring. Other
+configurations retain native conversion/sampling and their error precedence;
+host read, ID/score writes, and cancellation interfaces remain native.
+
+The hosted workflow now validates native and enabled configurations separately,
+with unconditional paired FP16/native-FP32 TensorBuffer tests and a link-symbol
+check. Each standard hosted leg retains the 60-minute/two-job/6144-MB bounds.
+The new integrated build/test result is pending; standalone parity does not
+certify this integration. No full engine executable, model or Android run has
+been validated. See `SAMPLER_INTEGRATION.md` for the remaining gates.
 
 ## Next integration gate
 

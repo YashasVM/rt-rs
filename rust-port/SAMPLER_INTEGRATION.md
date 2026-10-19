@@ -2,7 +2,9 @@
 
 Scope: source audit of LiteRT-LM v0.18.0 (`b2f686e2ed4718fb84ec398a61dd59ca0f0aff27`)
 and pinned main (`e32526ccbc54fed8d7ba8fbf292c03572fba5081`). This is not an
-engine integration or an end-to-end measurement.
+end-to-end measurement. The final section describes a scoped, pending-validation
+Bazel sampler integration. The original sampler .cc, .h and test .cc are byte-identical
+between these two upstream pins.
 
 ## Actual native path
 
@@ -57,9 +59,9 @@ boundary experiment, not a claim that Rust or LiteRT-LM inference is faster.
 `.github/workflows/rust-sampler-baseline.yml` runs the existing real
 `//runtime/components:top_p_cpu_sampler_test` on a standard Ubuntu 24.04 hosted
 runner, bounded to 60 minutes, two jobs and 6144 MB Bazel local RAM resources.
-It uses supported LiteRT `build_include=cpu_only`, not runtime stubs. The initial
-trigger is only changes to this workflow on the existing Rust branch, avoiding
-an expensive rebuild on every unrelated port checkpoint. Checkout is SHA-pinned,
+It uses supported LiteRT `build_include=cpu_only`, not runtime stubs. The original baseline
+trigger covered only workflow changes; the integration matrix also watches its
+relevant sampler/Rust source paths on the existing Rust branch. Checkout is SHA-pinned,
 credentials are not persisted, permissions are contents-read only, and no models,
 secrets, remote caches, artifacts or larger/paid runners are requested.
 
@@ -71,7 +73,22 @@ GitHub documentation; repository visibility was verified public before setup.
 Its documented 14 GB SSD does not guarantee this dependency build will fit.
 The test reaches LiteRT CPU runtime implementation transitively despite needing
 no model. Success/failure must be reported, not hidden with alternate stubs.
-This baseline does not enable Rust in the actual sampler and is not inference.
+The unchanged baseline passed 12/12 tests in run 39326962690 at commit 67c07f1.
+Bazel elapsed 2038.37s; output 7.1GB; observed free disk 85GB before/78GB after,
+with Clang 18.1.3 and Bazel 7.6.1. The raw concise evidence is retained in
+`benchmarks/hosted-native-sampler-baseline.json`. It is not model inference.
+
+The opt-in follow-up uses `--define=rt_rs_fp16_greedy=true` and explicit
+`top_p_cpu_sampler -> greedy_rust -> rt_rs_stop_ffi -> rt_rs_stop` Bazel deps.
+Only sampler.cc receives the local define; no public class/header layout changes.
+Default native and enabled paths each run paired real-TensorBuffer parity tests
+on separate bounded standard runners. Binary symbol checks require the FP16 Rust
+entry point only in the enabled binary; symbol presence proves linkage, not
+invocation counts. Independent source review found no blocking issue in the
+hook, dependency graph, seven added paired tests, or matrix; hosted execution
+is still required. No CMake option or final engine link is
+claimed. Integrated results are pending and must be recorded before claiming
+this gate passes.
 
 Sources checked 2026-10-19:
 - https://docs.github.com/en/actions/reference/runners/github-hosted-runners

@@ -1,9 +1,17 @@
-name: Rust port native sampler baseline
+name: Rust port real sampler integration
 
 on:
   push:
     branches: [rust/stop-token-detector-v0.18.0]
-    paths: [.github/workflows/rust-sampler-baseline.yml]
+    paths:
+      - .github/workflows/rust-sampler-baseline.yml
+      - runtime/components/top_p_cpu_sampler*
+      - runtime/components/BUILD
+      - rust-port/BUILD
+      - rust-port/src/**
+      - rust-port/ffi/**
+      - rust-port/native/greedy_rust.*
+      - rust-port/native/stop_ffi.h
 
 permissions:
   contents: read
@@ -14,6 +22,11 @@ concurrency:
 
 jobs:
   native-sampler:
+    name: Real sampler (Rust FP16=${{ matrix.rust_fp16 }})
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_fp16: ['false', 'true']
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -34,7 +47,7 @@ jobs:
           python3 --version
           df -h
           free -h
-      - name: Test unchanged real host TensorBuffer sampler
+      - name: Test real TensorBuffer sampler and native-reference parity
         run: |
           set -euo pipefail
           export BAZELISK_HOME="$RUNNER_TEMP/rt-rs-bazelisk"
@@ -43,11 +56,24 @@ jobs:
           bazelisk --output_user_root="$RUNNER_TEMP/rt-rs-bazel" test \
             --config=linux_x86_64 \
             --@litert//litert/build_common:build_include=cpu_only \
+            --define=rt_rs_fp16_greedy=${{ matrix.rust_fp16 }} \
             --jobs=2 \
             --local_ram_resources=6144 \
             --test_output=errors \
             --verbose_failures \
             //runtime/components:top_p_cpu_sampler_test
+      - name: Verify selected binary linkage
+        run: |
+          set -euo pipefail
+          nm bazel-bin/runtime/components/top_p_cpu_sampler_test > "$RUNNER_TEMP/sampler-symbols.txt"
+          if test '${{ matrix.rust_fp16 }}' = true; then
+            grep -E ' [Tt] rt_rs_greedy_fp16_token_ids$' "$RUNNER_TEMP/sampler-symbols.txt"
+          else
+            if grep -F 'rt_rs_greedy_fp16_token_ids' "$RUNNER_TEMP/sampler-symbols.txt"; then
+              echo 'Unexpected Rust FP16 backend in native-default binary' >&2
+              exit 1
+            fi
+          fi
       - name: Report final resource use and available test log
         if: always()
         run: |

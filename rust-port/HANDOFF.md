@@ -36,7 +36,7 @@ No Mobie source or native runtime build graph has been modified by this port.
 
 An isolated C ABI and C++ adapter now exercise the safe detector from native
 code. They are not wired into any engine target. Keep this distinction explicit:
-all production headers and build graphs remain unchanged. Future integration
+the original detector headers and build graphs remain unchanged. Future detector integration
 must validate class-layout propagation to every consumer and the flattened final
 archive linkage, not merely link the standalone contract executable. See README
 for ownership, pointer, panic and exception contracts and reproduction commands.
@@ -69,19 +69,29 @@ The independently reviewed branchless equivalent wins all tested shapes versus
 that old Rust variant. Native conversion-plus-selection median ratios range
 1.63–6.32x across three distributions, or 1.50–3.86x with equal host-copy costs.
 Keep per-distribution samples and GCC-versus-LLVM/shared-host caveats visible.
-No FP16 unsafe ABI or engine integration exists. A bounded stateless native
-boundary experiment, with independent safety review and equivalent full-path
-validation, is the next justified step; real tensor readback/device/model
-measurements remain necessary before any runtime performance claim.
+The later stateless ABI and opt-in sampler checkpoints below supersede the
+initial safe-only scope. Real device/model measurements remain necessary
+before any inference performance claim.
 
 ## FP16 native boundary checkpoint
 
 The standalone stateless binary16 ABI and owned C++ wrapper now pass 10,995
 native differential traces, nine ABI tests, and normal/sanitized native contracts.
-Independent unsafe review found no blocker; production targets remain unchanged.
+Independent unsafe review found no blocker in the standalone boundary; native
+defaults remain unchanged.
 Equivalent GCC fused control is retained alongside original conversion+selection
 and prior slower Rust implementation. Boundary gains persist across random,
 ascending, and periodic profiles, with exact per-distribution raw samples and
 compiler/copy-cost caveats in README and benchmarks. Do not generalize to Android
 or inference. `SAMPLER_INTEGRATION.md` records actual TensorBuffer, validation,
 RNG and exact-log-probability gates before a future engine option.
+
+## Real TensorBuffer sampler gate
+
+Unchanged hosted native baseline passed 12/12 tests in run 39326962690, with
+2038.37s cold build and 7.1GB output. The opt-in Bazel sampler flag now has an
+explicit Rust staticlib dependency and .cc-local define, no layout/CMake change.
+A two-leg hosted workflow will validate new paired FP16/native-FP32 parity tests
+in native and enabled modes plus binary linkage; this new result is pending.
+Exact scoring, non-k1 and invalid-config paths retain native fallback. Do not
+claim full-engine linkage, device readback latency or inference speed.

@@ -165,10 +165,21 @@ cc_test(
     ],
 )
 
+# Experimental Rust FP16 greedy path. Omit the define (or set it to false)
+# to retain the existing native implementation and dependency graph.
+config_setting(
+    name = "rt_rs_fp16_greedy",
+    define_values = {"rt_rs_fp16_greedy": "true"},
+)
+
 cc_library(
     name = "top_p_cpu_sampler",
     srcs = ["top_p_cpu_sampler.cc"],
     hdrs = ["top_p_cpu_sampler.h"],
+    local_defines = select({
+        ":rt_rs_fp16_greedy": ["LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":sampler",
         ":sampling_cpu_util",
@@ -184,7 +195,10 @@ cc_library(
         "//runtime/util:convert_tensor_buffer",
         "//runtime/util:tensor_buffer_util",
         "@litert//tflite/types:half",
-    ],
+    ] + select({
+        ":rt_rs_fp16_greedy": ["//rust-port:greedy_rust"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(

@@ -37,6 +37,10 @@
 #include "runtime/util/tensor_buffer_util.h"
 #include "tflite/types/half.h"  // from @litert
 
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+#include "rust-port/native/greedy_rust.h"
+#endif
+
 namespace litert::lm {
 namespace {
 
@@ -182,6 +186,11 @@ absl::Status TopPSampler::SampleToIdAndScoreBuffer(
 
   LITERT_ASSIGN_OR_RETURN(auto logits_tensor_type, logits_tensor.TensorType());
   absl::Span<float> logits_data_span;
+  std::vector<std::vector<float>> sampled_scores;
+  absl::StatusOr<std::vector<std::vector<int>>> sampled_ids;
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+  bool used_rust_fp16_greedy = false;
+#endif
   if (logits_tensor_type.ElementType() == ElementType::Float32) {
     auto logits_data_or = ReferTensorBufferAsSpan<float>(logits_tensor);
     if (!logits_data_or) {  // Download the data if it is not in host memory.
@@ -198,17 +207,49 @@ absl::Status TopPSampler::SampleToIdAndScoreBuffer(
         const_cast<TensorBuffer&>(logits_tensor);
     LITERT_RETURN_IF_ERROR(
         mutable_logits_tensor.Read(absl::MakeSpan(logits_data_f16)));
-    ConvertFp16ToFp32(logits_data_f16, logits_data_);
-    logits_data_span = absl::MakeSpan(logits_data_);
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+    // This is an applicability check, not new input validation. Unsupported or
+    // invalid configurations retain native conversion and error precedence.
+    // In particular, temperature=0 must not turn non-greedy k into greedy k.
+    const int64_t positions = static_cast<int64_t>(batch_size_) * sequence_size_;
+    if (k_ == 1 && p_ >= 0.0f && p_ <= 1.0f && temperature_ >= 0.0f &&
+        generator_ != nullptr && batch_size_ > 0 && sequence_size_ > 0 &&
+        positions <= std::numeric_limits<int>::max() &&
+        !logits_data_f16.empty() &&
+        logits_data_f16.size() <= std::numeric_limits<int>::max() &&
+        logits_data_f16.size() % positions == 0 &&
+        (scores_tensor == nullptr || !compute_exact_log_probs_)) {
+      // Only borrow the host-read binary16 encodings synchronously. Exact
+      // scoring needs full float logits, so that mode always falls back.
+      sampled_ids = rt_rs_experiment::GreedyFp16TokenIds(
+          absl::MakeConstSpan(logits_data_f16), batch_size_, sequence_size_);
+      used_rust_fp16_greedy = true;
+      if (sampled_ids.ok()) {
+        // Native k=1 emits probability 1 (log score 0), without an RNG draw.
+        sampled_scores.assign(batch_size_,
+                              std::vector<float>(sequence_size_, 1.0f));
+      }
+    } else {
+#endif
+      ConvertFp16ToFp32(logits_data_f16, logits_data_);
+      logits_data_span = absl::MakeSpan(logits_data_);
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+    }
+#endif
   } else {
     return absl::InvalidArgumentError(
         "Unsupported logits data type for sampler.");
   }
 
-  std::vector<std::vector<float>> sampled_scores;
-  auto sampled_ids =
-      TopKTopPSampling(logits_data_span, k_, p_, temperature_, generator_,
-                       batch_size_, sequence_size_, sampled_scores);
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+  if (!used_rust_fp16_greedy) {
+#endif
+    sampled_ids = TopKTopPSampling(logits_data_span, k_, p_, temperature_,
+                                  generator_, batch_size_, sequence_size_,
+                                  sampled_scores);
+#if defined(LITERTLM_EXPERIMENTAL_RUST_FP16_GREEDY)
+  }
+#endif
   if (!sampled_ids.ok()) {
     return sampled_ids.status();
   }
