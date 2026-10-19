@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Adapter only. The detector implementation is compiled from upstream unchanged.
+#ifdef LITERTLM_USE_RUST_STOP_DETECTOR
+#include "rust-port/native/stop_token_detector_rust.h"
+#else
 #include "runtime/components/stop_token_detector.h"
+#endif
 #include <array>
 #include <chrono>
 #include <iostream>

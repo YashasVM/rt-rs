@@ -22,7 +22,7 @@ pub enum Error {
 ///
 /// Each call consumes exactly one token per batch item. This owns all state
 /// and does not call native code. Counts use usize instead of C++ signed int.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StopTokenDetector {
     sequences: Vec<Vec<i32>>,
     rollback_marks: Vec<bool>,

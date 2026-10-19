@@ -27,6 +27,8 @@ def run(args, **kwargs):
 
 def main():
     current_main = os.environ.get("RT_RS_CURRENT_MAIN") == "1"
+    native_backend = os.environ.get("RT_RS_NATIVE_BACKEND") == "1"
+    candidate_name = "native_rust" if native_backend else "rust"
     reference_commit = CURRENT_MAIN if current_main else BASELINE
     reference_root = TARGET / "reference-source" / reference_commit
     for path in ["runtime/components/stop_token_detector.cc",
@@ -60,6 +62,16 @@ def main():
          PORT / "tests/reference.cc", reference_root / "runtime/components/stop_token_detector.cc",
          "-o", reference, *libs])
     rust = TARGET / "release/stop-trace"
+    if native_backend:
+        run(["cargo", "test", "--manifest-path", PORT / "ffi/Cargo.toml", "--locked", "--offline"])
+        run(["cargo", "build", "--release", "--manifest-path", PORT / "ffi/Cargo.toml",
+             "--target-dir", TARGET / "ffi", "--locked", "--offline"])
+        rust = TARGET / "native-rust-reference"
+        archive = TARGET / "ffi/release/librt_rs_stop_ffi.a"
+        run([cpp, "-std=c++20", "-O3", "-DNDEBUG", "-DLITERTLM_USE_RUST_STOP_DETECTOR",
+             *(["-DRT_RS_CURRENT_MAIN"] if current_main else []), "-I", ROOT,
+             PORT / "tests/reference.cc", PORT / "native/stop_token_detector_rust.cc",
+             archive, "-o", rust, *libs, "-ldl", "-lpthread", "-lm"])
     traces = [
         "N 2\nA 5\nA 7 8 9\nP 3 1\nP 6 0\nP 7 0\nP 8 0\nP 9 0\nP 10 6\nP 11 5\nR 0\nP 5 5\n",
         "N 1\nA 1 1 2\nP 1\nP 1\nP 1\nP 2\nA 1 1 2\nA\nP\nR 3\nP 1\nP 1 1 1\n",
@@ -147,6 +159,7 @@ def main():
     report = {
         "baseline": reference_commit,
         "compatibility_baseline": BASELINE,
+        "candidate": candidate_name,
         "litert_headers": LITERT_BASELINE,
         "platform": platform.platform(),
         "rustc": run(["rustc", "--version"]).strip(),
@@ -156,7 +169,9 @@ def main():
         "operations": len(all_input.splitlines()),
         "trace_sha256": hashlib.sha256(all_input.encode()).hexdigest(),
         "rust_source_sha256": {str(path.relative_to(PORT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                               for path in [PORT / "src/lib.rs", PORT / "src/bin/stop_trace.rs"]},
+                               for path in [PORT / "src/lib.rs", PORT / "src/bin/stop_trace.rs",
+                                            *([PORT / "ffi/src/lib.rs", PORT / "native/stop_token_detector_rust.cc",
+                                               PORT / "native/stop_token_detector_rust.h", PORT / "native/stop_ffi.h"] if native_backend else [])]},
         "timing_status": "Provisional shared-host microbenchmarks; no affinity or thermal control.",
         "benchmarks": {},
     }
@@ -164,10 +179,10 @@ def main():
     modes = [] if os.environ.get("RT_RS_SKIP_BENCHMARKS") == "1" else [
         "no-match", "partial", "early-stop", "nested-no-match", "nested-partial", "nested-early-stop"]
     for mode in modes:
-        samples = {"cpp": [], "rust": []}
+        samples = {"cpp": [], candidate_name: []}
         checksums = set()
         for repeat in range(9):
-            order = [("cpp", reference), ("rust", rust)]
+            order = [("cpp", reference), (candidate_name, rust)]
             if repeat % 2:
                 order.reverse()
             for name, binary in order:
@@ -183,7 +198,7 @@ def main():
             "sequences": [[7, 8, 9], [4, 4, 5], [99]],
             "rounds": rounds, "steps_per_round": 64,
         }
-    (PORT / ("main-results.json" if current_main else "results.json")).write_text(json.dumps(report, indent=2) + "\n")
+    (PORT / (("native-" if native_backend else "") + ("main-results.json" if current_main else "results.json"))).write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 
 

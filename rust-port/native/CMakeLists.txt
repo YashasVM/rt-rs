@@ -1,0 +1,17 @@
+# Copyright 2026 rt-rs contributors.
+# SPDX-License-Identifier: Apache-2.0
+cmake_minimum_required(VERSION 3.25)
+project(RustStopBackendContract LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+get_filename_component(ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ABSL REQUIRED IMPORTED_TARGET absl_status absl_statusor absl_log absl_check absl_strings absl_str_format)
+add_library(rt_rs_native STATIC stop_token_detector_rust.cc)
+target_link_libraries(rt_rs_native PUBLIC PkgConfig::ABSL)
+include(backend.cmake)
+rt_rs_link_standalone_adapter(rt_rs_native "${ROOT}")
+add_executable(native_contract ../tests/native_contract.cc)
+target_link_libraries(native_contract PRIVATE rt_rs_native)
+enable_testing()
+add_test(NAME native_contract COMMAND native_contract)

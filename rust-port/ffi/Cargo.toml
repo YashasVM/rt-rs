@@ -1,0 +1,18 @@
+[package]
+name = "rt-rs-stop-ffi"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+license = "Apache-2.0"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+rt-rs-stop = { path = ".." }
+
+[profile.release]
+panic = "unwind"

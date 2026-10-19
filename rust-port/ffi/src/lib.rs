@@ -1,0 +1,407 @@
+// Copyright 2026 rt-rs contributors.
+// SPDX-License-Identifier: Apache-2.0
+//! Audited C ABI boundary for the safe detector core. See native/stop_ffi.h.
+//! Handles are exclusively owned, must not be used concurrently, and must not
+//! alias any input/output storage. Pointer validation cannot detect dangling or
+//! fabricated addresses: callers must uphold the documented allocation bounds.
+//! Panics poison the handle and are caught before the ABI boundary. Allocator
+//! aborts (including allocation failure) and process signals are not recoverable.
+#![deny(unsafe_op_in_unsafe_fn)]
+
+use rt_rs_stop::{Error, StopTokenDetector};
+use std::num::NonZeroUsize;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr;
+
+const OK: i32 = 0;
+const INVALID: i32 = 3;
+const INTERNAL: i32 = 13;
+
+pub struct DetectorHandle {
+    detector: StopTokenDetector,
+    scratch: Vec<i32>,
+    poisoned: bool,
+}
+
+fn error_code(error: Error) -> i32 {
+    match error {
+        Error::InvalidTokenRow => INTERNAL,
+        _ => INVALID,
+    }
+}
+
+// The caller guarantees live exclusive ownership of the handle, if non-null.
+unsafe fn guard(handle: *mut DetectorHandle, op: impl FnOnce(&mut DetectorHandle) -> i32) -> i32 {
+    // SAFETY: caller contract guarantees exclusive access to a live allocation.
+    let Some(handle) = (unsafe { handle.as_mut() }) else {
+        return INVALID;
+    };
+    if handle.poisoned {
+        return INTERNAL;
+    }
+    match catch_unwind(AssertUnwindSafe(|| op(handle))) {
+        Ok(status) => status,
+        Err(_) => {
+            handle.poisoned = true;
+            INTERNAL
+        }
+    }
+}
+
+// Checks representable slice metadata, not allocation validity. The latter is
+// part of the C caller contract. Empty buffers may use null pointers.
+fn valid_buffer<T>(pointer: *const T, length: usize) -> bool {
+    length == 0
+        || (!pointer.is_null()
+            && (pointer as usize) % std::mem::align_of::<T>() == 0
+            && length <= isize::MAX as usize / std::mem::size_of::<T>()
+            && (pointer as usize)
+                .checked_add(length * std::mem::size_of::<T>())
+                .is_some())
+}
+
+unsafe fn input<'a, T>(pointer: *const T, length: usize) -> Result<&'a [T], i32> {
+    if !valid_buffer(pointer, length) {
+        return Err(INVALID);
+    }
+    if length == 0 {
+        return Ok(&[]);
+    }
+    // SAFETY: validated metadata; caller guarantees readable allocation/lifetime.
+    Ok(unsafe { std::slice::from_raw_parts(pointer, length) })
+}
+
+/// # Safety
+/// Returned pointer must be freed exactly once with rt_rs_stop_destroy. Batch
+/// must be nonzero and fit the C++ signed index range. Null indicates failure.
+#[no_mangle]
+pub extern "C" fn rt_rs_stop_create(batch: usize) -> *mut DetectorHandle {
+    if batch > i32::MAX as usize {
+        return ptr::null_mut();
+    }
+    let Some(batch) = NonZeroUsize::new(batch) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        Box::into_raw(Box::new(DetectorHandle {
+            detector: StopTokenDetector::new(batch),
+            scratch: vec![0; batch.get()],
+            poisoned: false,
+        }))
+    })
+    .unwrap_or(ptr::null_mut())
+}
+
+/// # Safety
+/// Handle must be null or a live uniquely owned pointer returned by this API.
+/// It must not be used again after this call, including by concurrent callers.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_destroy(handle: *mut DetectorHandle) {
+    if !handle.is_null() {
+        // SAFETY: caller transfers the unique allocation back exactly once.
+        drop(unsafe { Box::from_raw(handle) });
+    }
+}
+
+/// # Safety
+/// Handle must remain live and not be mutated concurrently. The returned handle
+/// is an independent deep copy and has the same destruction contract as create.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_clone(handle: *const DetectorHandle) -> *mut DetectorHandle {
+    // SAFETY: caller guarantees a live shared reference for this call.
+    let Some(handle) = (unsafe { handle.as_ref() }) else {
+        return ptr::null_mut();
+    };
+    if handle.poisoned {
+        return ptr::null_mut();
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        Box::into_raw(Box::new(DetectorHandle {
+            detector: handle.detector.clone(),
+            scratch: handle.scratch.clone(),
+            poisoned: false,
+        }))
+    }))
+    .unwrap_or(ptr::null_mut())
+}
+
+/// # Safety
+/// Handle follows the exclusive ownership contract. Tokens are readable for
+/// length elements, properly aligned, and do not overlap the handle.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_add(
+    handle: *mut DetectorHandle,
+    tokens: *const i32,
+    length: usize,
+) -> i32 {
+    // SAFETY: all pointer requirements are forwarded from the public contract.
+    unsafe {
+        guard(handle, |h| {
+            if length > i32::MAX as usize {
+                return INVALID;
+            }
+            let tokens = match input(tokens, length) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            h.detector
+                .add_stop_sequence(tokens)
+                .map_or_else(error_code, |_| OK)
+        })
+    }
+}
+
+/// # Safety
+/// Handle follows the exclusive ownership contract. Zero retains its batch.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_reset(handle: *mut DetectorHandle, batch: usize) -> i32 {
+    // SAFETY: caller guarantees exclusive live handle.
+    unsafe {
+        guard(handle, |h| {
+            if batch > i32::MAX as usize {
+                return INVALID;
+            }
+            let size = if batch == 0 { h.scratch.len() } else { batch };
+            h.scratch.resize(size, 0);
+            h.detector.reset_batch(NonZeroUsize::new(batch));
+            OK
+        })
+    }
+}
+
+/// # Safety
+/// Handle is live and exclusive. Return 0 means marked, 5 means not found.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_mark(handle: *mut DetectorHandle, token: i32) -> i32 {
+    // SAFETY: caller guarantees exclusive live handle.
+    unsafe {
+        guard(handle, |h| {
+            if h.detector.mark_for_rollback(token) {
+                OK
+            } else {
+                5
+            }
+        })
+    }
+}
+
+/// # Safety
+/// Handle is live and exclusive. Tokens are readable for length elements and
+/// do not overlap the handle or its internal storage. Invalid sizes do not mutate.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_process(
+    handle: *mut DetectorHandle,
+    tokens: *const i32,
+    length: usize,
+) -> i32 {
+    // SAFETY: caller supplies live handle and readable nonaliasing token storage.
+    unsafe {
+        guard(handle, |h| {
+            if length != h.scratch.len() {
+                return INVALID;
+            }
+            let tokens = match input(tokens, length) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            h.detector
+                .process_tokens(tokens)
+                .map_or_else(error_code, |_| OK)
+        })
+    }
+}
+
+/// # Safety
+/// Handle is live/exclusive. Rows/lengths contain count readable elements; every
+/// nonempty row points to its declared readable elements. Metadata and token
+/// buffers must not overlap handle storage. No per-call allocation is performed.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_process_rows(
+    handle: *mut DetectorHandle,
+    rows: *const *const i32,
+    lengths: *const usize,
+    count: usize,
+) -> i32 {
+    // SAFETY: caller supplies the documented live metadata/token buffers.
+    unsafe {
+        guard(handle, |h| {
+            if count != h.scratch.len() {
+                return INVALID;
+            }
+            let lengths = match input(lengths, count) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            if lengths.iter().any(|&n| n != 1) {
+                return INTERNAL;
+            }
+            let rows = match input(rows, count) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            if rows.iter().any(|&p| !valid_buffer(p, 1)) {
+                return INVALID;
+            }
+            for (slot, &row) in h.scratch.iter_mut().zip(rows) {
+                *slot = *row;
+            }
+            h.detector
+                .process_tokens(&h.scratch)
+                .map_or_else(error_code, |_| OK)
+        })
+    }
+}
+
+/// # Safety
+/// Handle is live/exclusive. Each output is writable for count elements, aligned,
+/// and disjoint from the handle and all other outputs. No pointers are retained.
+/// Returns an error before writing when metadata is invalid; counter overflow
+/// beyond the defined C++ range returns Internal and poisons the handle.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_snapshot(
+    handle: *mut DetectorHandle,
+    found: *mut u8,
+    discard: *mut i32,
+    partial: *mut i32,
+    rollback: *mut u8,
+    count: usize,
+) -> i32 {
+    // SAFETY: caller owns disjoint writable output arrays and the live handle.
+    unsafe {
+        guard(handle, |h| {
+            if count != h.scratch.len()
+                || !valid_buffer(found, count)
+                || !valid_buffer(discard, count)
+                || !valid_buffer(partial, count)
+                || !valid_buffer(rollback, count)
+            {
+                return INVALID;
+            }
+            for i in 0..count {
+                if h.detector.steps_before_stop_tokens()[i] > i32::MAX as usize
+                    || h.detector.max_partial_stop_token_length(i).unwrap() > i32::MAX as usize
+                {
+                    h.poisoned = true;
+                    return INTERNAL;
+                }
+            }
+            for i in 0..count {
+                found
+                    .add(i)
+                    .write(u8::from(h.detector.stop_tokens_found()[i]));
+                discard
+                    .add(i)
+                    .write(h.detector.steps_before_stop_tokens()[i] as i32);
+                partial
+                    .add(i)
+                    .write(h.detector.max_partial_stop_token_length(i).unwrap() as i32);
+                rollback
+                    .add(i)
+                    .write(u8::from(h.detector.ends_with_rollback_token(i).unwrap()));
+            }
+            OK
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn invalid_metadata_and_clone_are_safe() {
+        assert!(rt_rs_stop_create(0).is_null());
+        // SAFETY: every non-null handle is owned and each buffer lives for call.
+        unsafe {
+            assert_eq!(rt_rs_stop_process(ptr::null_mut(), ptr::null(), 1), INVALID);
+            let h = rt_rs_stop_create(1);
+            assert_eq!(rt_rs_stop_add(h, [7].as_ptr(), 1), OK);
+            assert_eq!(rt_rs_stop_process(h, ptr::null(), 1), INVALID);
+            assert_eq!(rt_rs_stop_process(h, [7].as_ptr(), usize::MAX), INVALID);
+            let copy = rt_rs_stop_clone(h);
+            assert!(!copy.is_null());
+            assert_eq!(rt_rs_stop_process(copy, [7].as_ptr(), 1), OK);
+            assert!(!(*h).detector.all_done());
+            assert!((*copy).detector.all_done());
+            rt_rs_stop_destroy(copy);
+            rt_rs_stop_destroy(h);
+            rt_rs_stop_destroy(ptr::null_mut());
+        }
+    }
+    #[test]
+    fn invalid_later_row_does_not_mutate_detector() {
+        // SAFETY: buffers are live, nonoverlapping; handles destroyed once.
+        unsafe {
+            let h = rt_rs_stop_create(2);
+            rt_rs_stop_add(h, [7].as_ptr(), 1);
+            let row = [7];
+            let rows = [row.as_ptr(), ptr::null()];
+            assert_eq!(
+                rt_rs_stop_process_rows(h, rows.as_ptr(), [1, 0].as_ptr(), 2),
+                INTERNAL
+            );
+            assert_eq!((*h).detector.stop_tokens_found(), &[false, false]);
+            assert_eq!(
+                rt_rs_stop_process_rows(h, rows.as_ptr(), [1, 1].as_ptr(), 2),
+                INVALID
+            );
+            assert_eq!((*h).detector.stop_tokens_found(), &[false, false]);
+            rt_rs_stop_destroy(h);
+        }
+    }
+    #[test]
+    fn snapshot_rejects_metadata_before_writing() {
+        // SAFETY: all valid buffers are live/disjoint; invalid metadata is
+        // rejected before any dereference or output writes.
+        unsafe {
+            let h = rt_rs_stop_create(1);
+            rt_rs_stop_add(h, [7].as_ptr(), 1);
+            rt_rs_stop_process(h, [7].as_ptr(), 1);
+            let mut found = [99u8];
+            let mut discard = [99i32];
+            let mut partial = [99i32];
+            let mut rollback = [99u8];
+            assert_eq!(
+                rt_rs_stop_snapshot(
+                    h,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    ptr::null_mut(),
+                    rollback.as_mut_ptr(),
+                    1
+                ),
+                INVALID
+            );
+            assert_eq!(found, [99]);
+            assert_eq!(discard, [99]);
+            assert_eq!(rollback, [99]);
+            assert_eq!(
+                rt_rs_stop_snapshot(
+                    h,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr(),
+                    1
+                ),
+                OK
+            );
+            assert_eq!(found, [1]);
+            assert_eq!(discard, [1]);
+            assert_eq!(partial, [1]);
+            assert_eq!(rollback, [0]);
+            rt_rs_stop_destroy(h);
+        }
+    }
+
+    #[test]
+    fn panic_is_caught_and_handle_is_poisoned() {
+        // SAFETY: handle is live/exclusive and destroyed once after poisoning.
+        unsafe {
+            let h = rt_rs_stop_create(1);
+            assert_eq!(guard(h, |_| panic!("injected test panic")), INTERNAL);
+            assert_eq!(rt_rs_stop_reset(h, 1), INTERNAL);
+            assert!(rt_rs_stop_clone(h).is_null());
+            rt_rs_stop_destroy(h);
+        }
+    }
+}

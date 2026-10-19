@@ -1,0 +1,301 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "candidate": "native_rust",
+  "litert_headers": "3e49a3789864362f6069e0568435b584a38cf917",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "absl": "20250512",
+  "trace_count": 713,
+  "operations": 86492,
+  "trace_sha256": "0a02fb4fbd482a2a3cf499c5faebab87b77d535178a169a56277d91d8eeed458",
+  "rust_source_sha256": {
+    "src/lib.rs": "d4f5bf15b0ce3a83b4a0025fe8de69b02da2581652baf6c9ac768fa2c7c9fb93",
+    "src/bin/stop_trace.rs": "611e520153664fd90b205b5b690dbf754d04511a6226cfe328a5e7a992e5b927",
+    "ffi/src/lib.rs": "b92ddc220a67c6fbc33408a2c7dc852a311eb7448ff69a9de6cf71aa242c16c4",
+    "native/stop_token_detector_rust.cc": "785dfffc136e6a029a1bfb0628a8289fcc7e1017426178b1c0a8e043354dcce4",
+    "native/stop_token_detector_rust.h": "f4df0e497942361267323137d64baaa65ba79d9ffa005be94cd9860eb076fa9d",
+    "native/stop_ffi.h": "47661841962dec64835ca432dfb93742c45705d9d36f338f7bde9ea7403f7e20"
+  },
+  "timing_status": "Provisional shared-cloud-host component microbenchmarks. Other known project workers paused heavy jobs during this run; no affinity, thermal, frequency or external-host-load control. No inference measurements.",
+  "benchmarks": {
+    "no-match": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          32.40940859375,
+          32.1033765625,
+          30.9271125,
+          30.920634375,
+          31.977959375,
+          31.226659375,
+          38.3709734375
+        ],
+        "native_rust": [
+          53.46062421875,
+          54.530234375,
+          53.73929609375,
+          51.237896875,
+          54.68933828125,
+          59.59538515625,
+          54.76985078125
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 31.977959375,
+        "native_rust": 54.530234375
+      },
+      "checksum": 0,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "partial": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          57.6593015625,
+          55.90721484375,
+          58.11812890625,
+          56.28405078125,
+          56.74246171875,
+          56.4754875,
+          56.735303125
+        ],
+        "native_rust": [
+          75.44720078125,
+          74.4947296875,
+          71.43209453125,
+          64.5562390625,
+          83.07477890625,
+          71.93702578125,
+          74.58767890625
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 56.735303125,
+        "native_rust": 74.4947296875
+      },
+      "checksum": 1280000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "early-stop": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          51.66310546875,
+          51.48065078125,
+          55.2763046875,
+          45.82963125,
+          45.52544609375,
+          61.50925625,
+          92.63783828125
+        ],
+        "native_rust": [
+          64.4653171875,
+          61.45328984375,
+          63.42035390625,
+          60.20026171875,
+          65.39223046875,
+          75.35033125,
+          88.7022296875
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 51.66310546875,
+        "native_rust": 64.4653171875
+      },
+      "checksum": 142420000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-no-match": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          48.8954078125,
+          51.894134375,
+          51.54831171875,
+          46.08713125,
+          48.4556296875,
+          48.219565625,
+          56.9039140625
+        ],
+        "native_rust": [
+          65.166521875,
+          60.433403125,
+          69.7665671875,
+          66.0462703125,
+          79.03593671875,
+          63.90033359375,
+          71.6610421875
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 48.8954078125,
+        "native_rust": 66.0462703125
+      },
+      "checksum": 0,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-partial": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          72.27305546875,
+          78.17574140625,
+          96.9465140625,
+          70.9660078125,
+          72.31334609375,
+          70.806834375,
+          73.49578984375
+        ],
+        "native_rust": [
+          89.758775,
+          83.32540390625,
+          105.96389453125,
+          88.52165859375,
+          80.59779453125,
+          83.79023828125,
+          104.61634609375
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 72.31334609375,
+        "native_rust": 88.52165859375
+      },
+      "checksum": 1280000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-early-stop": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          48.98506953125,
+          42.08108046875,
+          43.0365171875,
+          40.88640234375,
+          43.3009640625,
+          44.67493203125,
+          45.41987890625
+        ],
+        "native_rust": [
+          59.01751640625,
+          56.370428125,
+          52.39832421875,
+          52.681475,
+          54.6118390625,
+          53.514034375,
+          53.76636171875
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 43.3009640625,
+        "native_rust": 53.76636171875
+      },
+      "checksum": 142420000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    }
+  },
+  "measurement_utc": "2026-10-19T20:33:53.372575+00:00",
+  "binary_sha256": {
+    "reference": "ab49d3cee32a542e2453e7410a492d266c89fc2f0410ff4784b2655ed5cc7540",
+    "native-rust-reference": "df1625a4ad6dc19d7618bf790b449d98ce2711ffd1cc96921f976053069b03a1"
+  },
+  "measurement_method": "Already-built pinned-main reference and candidate executables, identical loop to verify.py: nine alternating-order repetitions, first two excluded, 20000 rounds x 64 steps, four batch rows. Includes native adapter scratch/snapshot/mirror costs.",
+  "worktree_base": "aabeb3daebc4e7f6370b6f3dadd0b513296e0459"
+}

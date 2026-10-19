@@ -5,3 +5,6 @@ __pycache__/
 
 /greedy-results.json
 /main-results.json
+/ffi/target/
+/native-results.json
+/native-main-results.json

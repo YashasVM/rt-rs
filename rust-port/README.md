@@ -225,6 +225,62 @@ permissions. Native differential checks are separately reproducible with the
 commands above; they are not part of this lightweight workflow. Workflow success
 does not establish model inference correctness or Android device performance.
 
+## Standalone native-adapter experiment
+
+`ffi/` isolates the unsafe C ABI from the safe core. `native/` implements a
+separate C++ `StopTokenDetector` adapter for contract and boundary-cost tests.
+This is **incomplete integration**, not a selectable production backend. The
+original engine headers, CMake/Bazel graphs and default implementation are
+unchanged. Do not link the experimental class and the original class into the
+same binary: their identical C++ names have different layouts.
+
+On native Linux x86-64 GNU, with Cargo, CMake and the documented Abseil pkg-config
+metadata available:
+
+```sh
+cmake -S rust-port/native -B rust-port/target/native-cmake
+cmake --build rust-port/target/native-cmake -j2
+ctest --test-dir rust-port/target/native-cmake --output-on-failure
+RT_RS_NATIVE_BACKEND=1 RT_RS_SKIP_BENCHMARKS=1 python3 rust-port/verify.py
+RT_RS_NATIVE_BACKEND=1 RT_RS_CURRENT_MAIN=1 RT_RS_SKIP_BENCHMARKS=1 python3 rust-port/verify.py
+```
+
+The adapter owns one opaque Rust handle. Copy construction/assignment deeply
+clone state; destruction releases it exactly once. Calls are synchronous, with
+no callbacks or cancellation work. Callers must serialize access and obey the
+pointer/alignment/lifetime/non-aliasing contract in `native/stop_ffi.h`. Metadata
+checks cannot make arbitrary dangling pointers safe. Rust unwinds are caught and
+poison the handle; allocation aborts, signals and `panic=abort` overrides are not
+recoverable. C++ allocation exceptions are allowed; mirror resizing commits only
+after all allocations succeed. Contract tests inject failure at each of seven
+resize allocations and seven copy-assignment allocations, and exercise copies,
+assignment and invalid-row atomicity.
+
+Nested native inputs are copied into retained Rust scratch storage, and each
+successful step copies result snapshots into C++ mirrors. This avoids temporary
+per-step allocations after sizing but is not a zero-copy interface. These costs
+must be measured rather than assumed faster. A cloud native contract run also passes AddressSanitizer/UndefinedBehaviorSanitizer
+on the C++ adapter and harness; the Rust archive and Abseil are uninstrumented
+and leak detection was disabled. This is not whole-program sanitizer coverage.
+Rust-only CI includes the four ABI
+unit tests, not native C++ parity, sanitizer or full-engine integration tests.
+
+The first measured adapter boundary is slower, not faster. Against pinned main,
+median native-to-Rust cost increased by 70.5% / 31.3% / 24.8% for flat no-match /
+partial / early-stop, and 35.1% / 22.4% / 24.2% for the corresponding nested
+modes. Raw samples, source/binary hashes and caveats are recorded in
+`benchmarks/cloud-native-stop-main.json`. Other known project jobs paused during
+this short run, but CPU frequency, affinity and external host load were not
+controlled. These component results reject assuming that pure-Rust helper gains
+survive a fine-grained C++ boundary. Reduce/coarsen copying and snapshot work
+before considering a real backend switch; never infer overall runtime speed.
+
+Actual engine integration still requires a single consistent class layout for
+all consumers (including serial/threaded execution managers), inclusion of the
+Rust archive in the final flattened archive registry, and builds/tests of those
+actual targets. Standalone link success cannot establish either requirement.
+No Android, model inference, device performance or end-to-end gain is validated.
+
 ## Next integration gate
 
 Before adding an engine bridge, audit `v0.18.0` native callback and cancellation

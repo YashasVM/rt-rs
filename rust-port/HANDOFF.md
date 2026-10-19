@@ -31,3 +31,12 @@ at the detector/filter boundary before choosing an integration design. A model,
 working native build and device/host baseline are needed to demonstrate any
 end-to-end improvement. Keep the native path available as a reference/fallback.
 No Mobie source or native runtime build graph has been modified by this port.
+
+## Standalone adapter checkpoint
+
+An isolated C ABI and C++ adapter now exercise the safe detector from native
+code. They are not wired into any engine target. Keep this distinction explicit:
+all production headers and build graphs remain unchanged. Future integration
+must validate class-layout propagation to every consumer and the flattened final
+archive linkage, not merely link the standalone contract executable. See README
+for ownership, pointer, panic and exception contracts and reproduction commands.
