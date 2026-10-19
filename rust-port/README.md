@@ -466,8 +466,11 @@ expected linkage checks in [run 39332219521](https://github.com/YashasVM/rt-rs/a
 at `d50e3bf`. Evidence is retained in `benchmarks/hosted-sampler-integration.json`.
 These are functional tests, not timing or invocation-count instrumentation.
 The next bounded job builds the opt-in real engine CLI and checks its static
-linkage/help startup; its outcome is pending. No model or Android run has been
-validated. See `SAMPLER_INTEGRATION.md` for the remaining gates.
+linkage/help startup. Its first run reached final link but failed on an
+unmaterialized upstream Git LFS shared library; original-object retrieval is
+being repaired and final linkage remains pending. No model or Android run has
+been validated. See `SAMPLER_INTEGRATION.md` for evidence and
+[DEVICE_VALIDATION.md](DEVICE_VALIDATION.md) for the future paired protocol.
 
 ## Next integration gate
 

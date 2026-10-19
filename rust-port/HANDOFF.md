@@ -97,3 +97,12 @@ binary linkage checks at d50e3bf, run 39332219521. Cold build times were
 runtime-performance measurements. The real engine link/help gate is next.
 Exact scoring, non-k1 and invalid-config paths retain native fallback. Do not
 claim full-engine linkage, device readback latency or inference speed.
+
+## Engine dependency materialization gate
+
+Run 39335660149 reached final link but found an unmaterialized upstream Git LFS
+constraint-provider .so. This is not a resource-limit failure or proof of a Rust
+link error. Preserve the failure evidence and retrieve only the original pinned,
+hash/size-verified upstream binary before rerunning the unchanged engine gates.
+No final linkage/help/inference result is yet established. Future phone/model
+validation is specified in DEVICE_VALIDATION.md, not performed by that document.

@@ -109,5 +109,13 @@ A defined FP16 Rust symbol and upstream static-LiteRt dependency check are
 followed by a bounded help-only startup smoke. Help must expose the expected
 model/backend flags; no model is downloaded or loaded. Success would establish
 final executable linkage/startup, not engine creation, tokenization, FP16 model
-execution or speed. This next result is pending. Android, CMake and actual
-model/device performance remain separate gates.
+execution or speed. The first run (39335660149, d342766) reached final link
+but failed because the upstream constraint-provider shared library was still
+a Git LFS pointer. It used 7.6 GB output and 1466.526s Bazel time, without
+resource exhaustion. Symbol/help checks were correctly skipped. The repair
+materializes the original SHA-256/size-verified upstream object; final linkage
+remains unproved until that retry passes. See
+`benchmarks/hosted-engine-lfs-failure.json`. Android, CMake and actual
+model/device performance remain separate gates. See the future
+[device validation protocol](DEVICE_VALIDATION.md) for paired correctness,
+actual path invocation and end-to-end measurements.

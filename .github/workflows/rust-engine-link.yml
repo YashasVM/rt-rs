@@ -40,6 +40,33 @@ jobs:
           python3 --version
           df -h
           free -h
+      - name: Materialize pinned upstream Linux x86-64 constraint provider
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          # Fetch only the official LFS object required by this CPU engine link.
+          # Pin to the port's upstream baseline, not a moving branch or all platforms.
+          upstream_revision=b2f686e2ed4718fb84ec398a61dd59ca0f0aff27
+          dependency=prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so
+          expected_sha256=f5970d283f648f15531361bff2ad110d5bcb972563bd560483fc65fffb01f3d3
+          expected_size=22627960
+          # Fail if the checkout's dependency pin changes without updating this step.
+          printf 'version https://git-lfs.github.com/spec/v1\noid sha256:%s\nsize %s\n' \
+            "$expected_sha256" "$expected_size" | cmp - "$dependency"
+          download="$RUNNER_TEMP/libGemmaModelConstraintProvider.so"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 180 --retry 2 --retry-max-time 300 \
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$upstream_revision/$dependency" \
+            --output "$download"
+          test "$(stat --printf='%s' "$download")" = "$expected_size"
+          printf '%s  %s\n' "$expected_sha256" "$download" | sha256sum --check --strict
+          readelf --file-header "$download" > "$RUNNER_TEMP/constraint-provider-elf.txt"
+          cat "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Class:[[:space:]]+ELF64$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Type:[[:space:]]+DYN \(Shared object file\)$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Machine:[[:space:]]+Advanced Micro Devices X86-64$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          install -m 0644 "$download" "$dependency"
       - name: Build genuine CPU-only engine with Rust FP16 opt-in
         run: |
           set -euo pipefail

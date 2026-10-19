@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-10-19",
+  "scope": "Real opt-in CPU engine build; failed before symbol/help gates",
+  "commit": "d34276697f69eecca2c5b16a8e43816ce860fcd8",
+  "run_url": "https://github.com/YashasVM/rt-rs/actions/runs/39335660149",
+  "job_id": 118344405641,
+  "conclusion": "failure",
+  "target": "//runtime/engine:litert_lm_main",
+  "rust_option": true,
+  "bazel_elapsed_seconds": 1466.526,
+  "reported_processes": 4971,
+  "output_size": "7.6G",
+  "runner_free_disk_after": "78G",
+  "failure": "Final linker encountered Git LFS pointer text instead of prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so",
+  "error": "ld.lld: error: libGemmaModelConstraintProvider.so:1: unknown directive: version",
+  "lfs_sha256": "f5970d283f648f15531361bff2ad110d5bcb972563bd560483fc65fffb01f3d3",
+  "lfs_bytes": 22627960,
+  "symbol_check": "skipped",
+  "help_smoke": "skipped",
+  "notes": [
+    "No timeout or resource exhaustion observed.",
+    "This failure does not establish successful Rust/runtime final linkage.",
+    "Repair must retrieve original hash-verified upstream object, not substitute a stub or suppress link errors."
+  ]
+}
