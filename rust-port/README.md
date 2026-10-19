@@ -461,9 +461,13 @@ host read, ID/score writes, and cancellation interfaces remain native.
 The hosted workflow now validates native and enabled configurations separately,
 with unconditional paired FP16/native-FP32 TensorBuffer tests and a link-symbol
 check. Each standard hosted leg retains the 60-minute/two-job/6144-MB bounds.
-The new integrated build/test result is pending; standalone parity does not
-certify this integration. No full engine executable, model or Android run has
-been validated. See `SAMPLER_INTEGRATION.md` for the remaining gates.
+Both integrated configurations passed all 19 real TensorBuffer tests and the
+expected linkage checks in [run 39332219521](https://github.com/YashasVM/rt-rs/actions/runs/39332219521)
+at `d50e3bf`. Evidence is retained in `benchmarks/hosted-sampler-integration.json`.
+These are functional tests, not timing or invocation-count instrumentation.
+The next bounded job builds the opt-in real engine CLI and checks its static
+linkage/help startup; its outcome is pending. No model or Android run has been
+validated. See `SAMPLER_INTEGRATION.md` for the remaining gates.
 
 ## Next integration gate
 

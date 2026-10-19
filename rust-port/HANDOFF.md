@@ -91,7 +91,9 @@ RNG and exact-log-probability gates before a future engine option.
 Unchanged hosted native baseline passed 12/12 tests in run 39326962690, with
 2038.37s cold build and 7.1GB output. The opt-in Bazel sampler flag now has an
 explicit Rust staticlib dependency and .cc-local define, no layout/CMake change.
-A two-leg hosted workflow will validate new paired FP16/native-FP32 parity tests
-in native and enabled modes plus binary linkage; this new result is pending.
+Both hosted legs passed all 19 paired real TensorBuffer tests and correct
+binary linkage checks at d50e3bf, run 39332219521. Cold build times were
+1091.57s native and 1462.66s Rust on separate runners; these are not comparable
+runtime-performance measurements. The real engine link/help gate is next.
 Exact scoring, non-k1 and invalid-config paths retain native fallback. Do not
 claim full-engine linkage, device readback latency or inference speed.

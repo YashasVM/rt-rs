@@ -2,7 +2,7 @@
 
 Scope: source audit of LiteRT-LM v0.18.0 (`b2f686e2ed4718fb84ec398a61dd59ca0f0aff27`)
 and pinned main (`e32526ccbc54fed8d7ba8fbf292c03572fba5081`). This is not an
-end-to-end measurement. The final section describes a scoped, pending-validation
+end-to-end measurement. The final section describes a scoped, host-tested
 Bazel sampler integration. The original sampler .cc, .h and test .cc are byte-identical
 between these two upstream pins.
 
@@ -85,12 +85,29 @@ Default native and enabled paths each run paired real-TensorBuffer parity tests
 on separate bounded standard runners. Binary symbol checks require the FP16 Rust
 entry point only in the enabled binary; symbol presence proves linkage, not
 invocation counts. Independent source review found no blocking issue in the
-hook, dependency graph, seven added paired tests, or matrix; hosted execution
-is still required. No CMake option or final engine link is
-claimed. Integrated results are pending and must be recorded before claiming
-this gate passes.
+hook, dependency graph, seven added paired tests, or matrix. Both hosted legs
+passed all 19 real TensorBuffer tests and linkage checks in run 39332219521
+at d50e3bf. The concise evidence is in `benchmarks/hosted-sampler-integration.json`.
+No CMake option, model inference, or final engine link is claimed by that result.
 
 Sources checked 2026-10-19:
 - https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 - https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
 - https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/install-bazel.sh
+
+
+## Final engine linkage gate
+
+The next separate hosted workflow builds `//runtime/engine:litert_lm_main`
+with the same supported CPU-only settings and explicit Rust FP16 option. This
+adds actual tokenizer, llguidance, template and parser Rust consumers absent
+from sampler tests. Mixed Rust staticlib/rlib runtime linkage must succeed
+without duplicate-symbol suppression, tokenizer removal, whole-archive changes
+or stubs. The same pinned Bazel toolchain supplies all Rust components.
+
+A defined FP16 Rust symbol and upstream static-LiteRt dependency check are
+followed by a bounded help-only startup smoke. Help must expose the expected
+model/backend flags; no model is downloaded or loaded. Success would establish
+final executable linkage/startup, not engine creation, tokenization, FP16 model
+execution or speed. This next result is pending. Android, CMake and actual
+model/device performance remain separate gates.

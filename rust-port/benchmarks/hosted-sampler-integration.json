@@ -1,0 +1,41 @@
+{
+  "commit": "d50e3bf9626cef1b471ee5e0fec8f25f6b420d14",
+  "run_url": "https://github.com/YashasVM/rt-rs/actions/runs/39332219521",
+  "scope": "Actual real host TensorBuffer sampler native/opt-in parity; no model/device/performance claim",
+  "linkage_check": "Rust FP16 entry point defined only in enabled binary; not invocation counting",
+  "legs": [
+    {
+      "backend": "native",
+      "job_id": 118332938823,
+      "conclusion": "success",
+      "gtest_tests": 19,
+      "selected_log_lines": [
+        "2026-10-19T22:04:02.5393963Z /dev/root        145G   60G   86G  42% /",
+        "2026-10-19T22:04:02.5411290Z Mem:            15Gi       1.4Gi        11Gi        43Mi       3.3Gi        14Gi",
+        "2026-10-19T22:22:14.2356930Z INFO: Elapsed time: 1091.574s, Critical Path: 22.18s",
+        "2026-10-19T22:22:14.7297080Z /dev/root        145G   67G   79G  46% /",
+        "2026-10-19T22:22:14.7311558Z Mem:            15Gi       2.6Gi       1.7Gi        47Mi        11Gi        13Gi",
+        "2026-10-19T22:22:15.9260764Z 7.1G\t/home/runner/work/_temp/rt-rs-bazel",
+        "2026-10-19T22:22:16.5591247Z [==========] Running 19 tests from 2 test suites.",
+        "2026-10-19T22:22:16.5612670Z [  PASSED  ] 19 tests."
+      ]
+    },
+    {
+      "backend": "rust_fp16",
+      "job_id": 118332938497,
+      "conclusion": "success",
+      "gtest_tests": 19,
+      "selected_log_lines": [
+        "2026-10-19T22:04:04.6414732Z /dev/root        145G   60G   85G  42% /",
+        "2026-10-19T22:04:04.6432045Z Mem:            15Gi       1.2Gi        11Gi        43Mi       3.3Gi        14Gi",
+        "2026-10-19T22:28:27.4730000Z INFO: Elapsed time: 1462.662s, Critical Path: 32.87s",
+        "2026-10-19T22:28:28.7369193Z 0000000000098610 T rt_rs_greedy_fp16_token_ids",
+        "2026-10-19T22:28:28.7515914Z /dev/root        145G   67G   78G  47% /",
+        "2026-10-19T22:28:28.7531814Z Mem:            15Gi       2.3Gi       2.0Gi        48Mi        11Gi        13Gi",
+        "2026-10-19T22:28:30.2557395Z 7.1G\t/home/runner/work/_temp/rt-rs-bazel",
+        "2026-10-19T22:28:30.9777808Z [==========] Running 19 tests from 2 test suites.",
+        "2026-10-19T22:28:30.9797095Z [  PASSED  ] 19 tests."
+      ]
+    }
+  ]
+}

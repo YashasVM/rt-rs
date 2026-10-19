@@ -1,0 +1,110 @@
+name: Rust port real CPU engine link
+
+on:
+  push:
+    branches: [rust/stop-token-detector-v0.18.0]
+    # Initial bounded experiment: do not rerun the sampler matrix or watch source changes.
+    paths: [.github/workflows/rust-engine-link.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-engine-link-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-engine:
+    name: Real CPU engine (Rust FP16 opt-in)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified 2026-10-19
+        with:
+          persist-credentials: false
+      - name: Verify existing hosted tools and resource budget
+        run: |
+          set -euo pipefail
+          export BAZELISK_HOME="$RUNNER_TEMP/rt-rs-bazelisk"
+          date +%s > "$RUNNER_TEMP/engine-start-seconds"
+          test "$(cat .bazelversion)" = 7.6.1
+          command -v bazelisk
+          command -v clang
+          command -v clang++
+          command -v nm
+          command -v readelf
+          command -v timeout
+          bazelisk --version
+          clang --version
+          java -version
+          python3 --version
+          df -h
+          free -h
+      - name: Build genuine CPU-only engine with Rust FP16 opt-in
+        run: |
+          set -euo pipefail
+          export BAZELISK_HOME="$RUNNER_TEMP/rt-rs-bazelisk"
+          export CC=clang CXX=clang++
+          # Retain upstream dependency pins, all tokenizers and legacy_whole_archive=0.
+          # No models, secrets, stubs, remote cache, paid runner or link-error suppression.
+          SECONDS=0
+          trap 'echo "Engine build elapsed seconds: $SECONDS"' EXIT
+          bazelisk --output_user_root="$RUNNER_TEMP/rt-rs-bazel" build \
+            --config=linux_x86_64 \
+            --@litert//litert/build_common:build_include=cpu_only \
+            --define=rt_rs_fp16_greedy=true \
+            --jobs=2 \
+            --local_ram_resources=6144 \
+            --verbose_failures \
+            //runtime/engine:litert_lm_main
+      - name: Verify final engine symbols and static LiteRT linkage
+        run: |
+          set -euo pipefail
+          binary=bazel-bin/runtime/engine/litert_lm_main
+          test -x "$binary"
+          stat --printf='Engine binary size: %s bytes\n' "$binary"
+          nm --defined-only "$binary" > "$RUNNER_TEMP/engine-symbols.txt"
+          grep -E ' [Tt] rt_rs_greedy_fp16_token_ids$' "$RUNNER_TEMP/engine-symbols.txt"
+          # Match the upstream static-runtime check without masking readelf failures.
+          readelf -d "$binary" > "$RUNNER_TEMP/engine-dynamic.txt"
+          cat "$RUNNER_TEMP/engine-dynamic.txt"
+          if grep -F 'libLiteRt.so' "$RUNNER_TEMP/engine-dynamic.txt"; then
+            echo 'Unexpected dynamic LiteRT dependency in CPU engine' >&2
+            exit 1
+          fi
+      - name: Bounded model-free help smoke
+        run: |
+          set -euo pipefail
+          # Abseil help exits before model validation; never run an empty-model inference.
+          # A valid help exit is not a model inference or sampling-performance test.
+          help_log="$RUNNER_TEMP/engine-help.txt"
+          status=0
+          SECONDS=0
+          timeout --signal=TERM --kill-after=5s 15s \
+            bazel-bin/runtime/engine/litert_lm_main --helpfull > "$help_log" 2>&1 || status=$?
+          echo "Engine help exit code: $status; elapsed seconds: $SECONDS"
+          cat "$help_log"
+          case "$status" in
+            0|1) ;;
+            *) echo 'Engine help failed, timed out or terminated by signal' >&2; exit 1 ;;
+          esac
+          if grep -Ei 'error while loading shared libraries|symbol lookup error|cannot open shared object file|segmentation fault|aborted|core dumped' "$help_log"; then
+            echo 'Engine startup or loader error' >&2
+            exit 1
+          fi
+          grep -E -- '(^|[[:space:]])--model_path([[:space:]=]|$)' "$help_log"
+          grep -E -- '(^|[[:space:]])--backend([[:space:]=]|$)' "$help_log"
+      - name: Report final resource use and output size
+        if: always()
+        run: |
+          df -h
+          free -h
+          if test -f "$RUNNER_TEMP/engine-start-seconds"; then
+            echo "Engine experiment elapsed seconds: $(( $(date +%s) - $(cat "$RUNNER_TEMP/engine-start-seconds") ))"
+          fi
+          if test -d "$RUNNER_TEMP/rt-rs-bazel"; then
+            du -sh "$RUNNER_TEMP/rt-rs-bazel"
+          fi
+          if test -f bazel-bin/runtime/engine/litert_lm_main; then
+            stat --printf='Engine binary size: %s bytes\n' bazel-bin/runtime/engine/litert_lm_main
+          fi
