@@ -57,10 +57,17 @@ impl StopTokenDetector {
     /// Retains stop sequences; None retains the existing nonzero batch size.
     pub fn reset_batch(&mut self, batch_size: Option<NonZeroUsize>) {
         let size = batch_size.map_or(self.found.len(), NonZeroUsize::get);
-        self.found = vec![false; size];
-        self.partial = vec![0; size];
-        self.discard = vec![0; size];
-        self.progress = vec![vec![0; self.sequences.len()]; size];
+        self.found.resize(size, false);
+        self.found.fill(false);
+        self.partial.resize(size, 0);
+        self.partial.fill(0);
+        self.discard.resize(size, 0);
+        self.discard.fill(0);
+        self.progress.resize_with(size, Vec::new);
+        for row in &mut self.progress {
+            row.resize(self.sequences.len(), 0);
+            row.fill(0);
+        }
     }
 
     pub fn process_tokens(&mut self, tokens: &[i32]) -> Result<(), Error> {
@@ -70,25 +77,31 @@ impl StopTokenDetector {
         if self.sequences.is_empty() {
             return Err(Error::NoStopSequences);
         }
-        for (i, &token) in tokens.iter().enumerate() {
-            if self.found[i] {
-                self.discard[i] += 1;
+        let batch = tokens
+            .iter()
+            .zip(&mut self.found)
+            .zip(&mut self.discard)
+            .zip(&mut self.partial)
+            .zip(&mut self.progress);
+        for ((((&token, found), discard), partial), row) in batch {
+            if *found {
+                *discard += 1;
                 continue;
             }
-            self.partial[i] = 0;
-            for (k, sequence) in self.sequences.iter().enumerate() {
-                let progress = &mut self.progress[i][k];
-                if *progress < sequence.len() && sequence[*progress] == token {
+            let mut maximum = 0;
+            for (progress, sequence) in row.iter_mut().zip(&self.sequences) {
+                if sequence.get(*progress) == Some(&token) {
                     *progress += 1;
                 } else {
-                    *progress = usize::from(sequence[0] == token);
+                    *progress = usize::from(sequence.first() == Some(&token));
                 }
                 if *progress > 0 && *progress == sequence.len() {
-                    self.found[i] = true;
-                    self.discard[i] = sequence.len();
+                    *found = true;
+                    *discard = sequence.len();
                 }
-                self.partial[i] = self.partial[i].max(*progress);
+                maximum = maximum.max(*progress);
             }
+            *partial = maximum;
         }
         Ok(())
     }

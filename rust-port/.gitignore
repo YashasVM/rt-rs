@@ -1,3 +1,4 @@
 /target/
 /results.json
+/comparison.json
 __pycache__/
