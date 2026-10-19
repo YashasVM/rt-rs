@@ -39,7 +39,7 @@ def main():
     run(["cargo", "test", "--manifest-path", PORT / "Cargo.toml", "--locked", "--offline"])
     run(["cargo", "build", "--release", "--manifest-path", PORT / "Cargo.toml", "--locked", "--offline"])
     cpp = os.environ.get("CXX", "c++")
-    libs = shlex.split(run(["pkg-config", "--libs", "absl_status", "absl_statusor",
+    libs = shlex.split(run(["pkg-config", "--cflags", "--libs", "--static", "absl_status", "absl_statusor",
                            "absl_log", "absl_check", "absl_strings", "absl_str_format"]))
     reference = TARGET / "reference"
     config_dir = TARGET / "include/litert/build_common"

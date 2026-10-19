@@ -24,7 +24,7 @@ history, licensing and attribution remain intact. Rust support already present
 upstream, such as template and parser components, is not work added by this port.
 
 Nothing in this milestone ports model execution, compute kernels, tokenizers,
-sampling, engine/session ownership, conversations, callbacks, cancellation or
+general top-k/top-p sampling, engine/session ownership, conversations, callbacks, cancellation or
 device acceleration. Those remain native. There is no inference speedup claim.
 
 ## Runtime and build boundaries
@@ -70,9 +70,11 @@ to the flat API within the C++ integer range.
 
 ## Reproduce verification
 
-Requirements: Rust/Cargo with edition 2021 support, Python 3, a C++20 compiler,
+Requirements: Rust/Cargo 1.70 or newer, Python 3.12 or newer, a C++20 compiler,
 pkg-config and Abseil development headers/libraries with logging support.
-No Cargo network access or Python packages are needed.
+No Cargo network access or Python packages are needed. If Abseil is installed
+outside the system prefix, set `PKG_CONFIG_PATH` to its `lib/pkgconfig` directory;
+the verifier obtains its include and static-link flags from pkg-config.
 
 From the fork root:
 
@@ -119,6 +121,60 @@ Reported time includes resets, token preparation and checksum reads. Rust uses
 unit without LTO. These are local microbenchmarks with synthetic tokens, no
 CPU affinity, thermal control, model loading, GPU work or end-to-end inference.
 They cannot establish Mobie latency, throughput or a 2x improvement.
+
+## Greedy logits selection
+
+`src/greedy.rs` adds a second genuine runtime-layer port: the `k = 1` path of
+`TopKTokenIds` in the unchanged upstream `sampling_cpu_util.cc`. It is pure Rust,
+not an FFI wrapper. `greedy::greedy_token_ids` accepts flattened f32 logits and
+nonzero batch/sequence dimensions, returning one vocabulary index per position.
+General top-k, softmax, randomized/top-p sampling and runtime integration remain
+out of scope.
+
+The 128-element tiles and eight-lane reduction retain the original comparison
+order. For inputs without NaNs, ties choose the first index. With NaNs, lane
+seeds can mask later elements or whole tiles, so the result can differ from a
+simple scalar argmax. The implementation deliberately preserves those reference
+behaviors rather than substituting Rust's float `max`. Signed zero and infinities
+are covered. Empty vocabulary returns zero indices, matching the native helper.
+The Rust API rejects shape multiplication overflow and indivisible buffers,
+and uses fallible output allocation. It does not emulate native invalid zero
+dimensions, signed overflow, or exact error strings.
+
+Run `python3 rust-port/verify_greedy.py` for the unchanged C++ translation-unit
+comparison. This verifier needs Abseil but not the separate LiteRT checkout.
+The cloud run passed 11,481 deterministic cases: every maximum/tie/NaN position
+across tile-boundary vocabulary sizes, special IEEE-754 bit patterns, randomized
+float bit patterns, batch/sequence layouts, empty vocabularies and invalid buffer
+shapes. Nineteen greedy unit tests plus the five stop-detector tests also pass.
+The recorded environment and input digest are in `benchmarks/cloud-greedy.json`.
+The same cases also passed an AddressSanitizer/UndefinedBehaviorSanitizer native
+harness run (`benchmarks/cloud-greedy-sanitized.json`). Leak checking was disabled
+because LeakSanitizer cannot run under this executor's ptrace; the separately
+built Abseil libraries were not instrumented. No greedy performance or
+end-to-end inference improvement is claimed.
+
+## Cloud stop-detector follow-up
+
+The reset/iteration optimization at checkpoint `230f07f` reuses allocated state
+and avoids repeated indexed batch access. Cloud verification again passed all
+452 C++ traces / 41,135 operations. `benchmarks/cloud-stop.json` records a fresh
+C++/Rust comparison; `benchmarks/cloud-stop-ab.json` compares the original Rust
+milestone against this optimized implementation using the same compiler/machine.
+The latter medians fell by 17.9% (no match), 22.8% (partial match) and 7.4%
+(early stop). Those are component microbenchmarks, not model inference.
+Run `python3 rust-port/compare.py` to reproduce the A/B check. This command
+requires a Cargo version supporting the original milestone's v4 lockfile
+(tested with Cargo 1.99.1); the Rust 1.70 minimum applies to the current crate,
+not that archived comparison build. Run it serially,
+not alongside the differential verifier or another benchmark/build.
+
+These samples come from a different CPU/compiler environment than the original
+baseline and must not be compared across machines. Both recorded cloud checks
+were run serially after the dependency build, without another benchmark job.
+Shared-host scheduling and the lack of CPU affinity/thermal control still apply.
+The current source digest in the A/B report identifies the working-tree library;
+its commit field records the parent checkout before the new port commit.
 
 ## Next integration gate
 

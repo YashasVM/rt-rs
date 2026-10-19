@@ -5,6 +5,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod greedy;
+
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

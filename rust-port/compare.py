@@ -3,6 +3,8 @@
 """Interleave original and current Rust benchmarks on this machine."""
 import io
 import json
+import platform
+import hashlib
 from pathlib import Path
 import statistics
 import subprocess
@@ -24,7 +26,12 @@ def main():
     run(["cargo", "build", "--release", "--locked", "--offline", "--manifest-path", PORT / "Cargo.toml"])
     original = TARGET / "original-build/release/stop-trace"
     current = TARGET / "release/stop-trace"
-    report = {"original_commit": ORIGINAL, "comparison": {}}
+    report = {"original_commit": ORIGINAL,
+              "current_commit": run(["git", "rev-parse", "HEAD"]).strip(),
+              "current_source_sha256": hashlib.sha256((PORT / "src/lib.rs").read_bytes()).hexdigest(),
+              "platform": platform.platform(),
+              "rustc": run(["rustc", "--version"]).strip(),
+              "comparison": {}}
     for mode in ["no-match", "partial", "early-stop"]:
         samples = {"original": [], "current": []}
         checksums = set()

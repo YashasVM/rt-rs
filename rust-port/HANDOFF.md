@@ -1,4 +1,26 @@
-# Cloud continuation checkpoint
+# Cloud port checkpoint (2026-10-19)
+
+Continuation now runs exclusively on the dot cloud computer. The earlier local
+checkpoint is retained below as history, not a request to resume local work.
+
+- Official Rust toolchains, CMake and Abseil were installed only in the cloud
+  workspace. The crate passes its tests on Rust 1.70.0 and 1.99.1; the lockfile
+  format supports both. It retains zero Cargo dependencies and forbids unsafe.
+- Stop detection passes 452 C++ traces / 41,135 operations. Serial cloud A/B
+  medians improve by 17.9%, 22.8%, 7.4% for no-match/partial/early-stop versus
+  the first Rust milestone. Raw samples and environment are in benchmarks/.
+- The pure-Rust greedy k=1 candidate is implemented and exported. Nineteen new
+  unit tests and 11,481 C++ differential cases cover shape checks and exact
+  float-comparison ordering. No general sampling or native integration yet.
+- All validation commands and limitations are documented in README.md. Set
+  PKG_CONFIG_PATH for a non-system Abseil install. Run benchmarks serially.
+
+Next bounded work: port the detector nested single-token-vector overload and
+validate it against unchanged native code, then audit its actual generation-task
+integration boundary. Do not mistake standalone component parity for an engine
+port, native build integration, or end-to-end model inference validation.
+
+# Historical migration checkpoint
 
 Local port development stopped at the user's request. No builds, benchmarks or
 Claude jobs remain running from this task. Continue in a separate cloud checkout;
