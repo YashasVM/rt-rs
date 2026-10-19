@@ -10,7 +10,7 @@ import random
 import shlex
 import struct
 
-from verify import BASELINE, PORT, ROOT, TARGET, run
+from verify import BASELINE, CURRENT_MAIN, PORT, ROOT, TARGET, run
 
 
 def bits(value):
@@ -18,10 +18,13 @@ def bits(value):
 
 
 def main():
+    current_main = os.environ.get("RT_RS_CURRENT_MAIN") == "1"
     for path in ['runtime/components/sampling_cpu_util.cc',
                  'runtime/components/sampling_cpu_util.h']:
         if (ROOT / path).read_text() != run(['git', 'show', f'{BASELINE}:{path}']):
             raise SystemExit(f'Reference differs from baseline: {path}')
+        if current_main and (ROOT / path).read_text() != run(['git', 'show', f'{CURRENT_MAIN}:{path}']):
+            raise SystemExit(f'Current main sampling source has changed: {path}')
     run(['cargo', 'test', '--manifest-path', PORT / 'Cargo.toml', '--locked', '--offline'])
     run(['cargo', 'build', '--release', '--manifest-path', PORT / 'Cargo.toml', '--locked', '--offline'])
     cpp = os.environ.get('CXX', 'c++')
@@ -81,7 +84,8 @@ def main():
                 (TARGET / 'failed-greedy-trace.txt').write_text(cases[index])
                 raise AssertionError(f'Case {index}: C++={left}, Rust={right}')
         raise AssertionError('Output line count mismatch')
-    report = {'baseline': BASELINE, 'cases': len(cases),
+    report = {'baseline': CURRENT_MAIN if current_main else BASELINE,
+              'compatibility_baseline': BASELINE, 'cases': len(cases),
               'input_sha256': hashlib.sha256(inputs.encode()).hexdigest(),
               'platform': platform.platform(),
               'rustc': run(['rustc', '--version']).strip(),

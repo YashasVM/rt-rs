@@ -12,7 +12,10 @@
 int main(int argc, char** argv) {
   using litert::lm::StopTokenDetector;
   if (argc > 1 && std::string(argv[1]) == "bench") {
-    const std::string mode = argv[2];
+    std::string mode = argv[2];
+    const bool nested = mode.rfind("nested-", 0) == 0;
+    if (nested) mode = mode.substr(7);
+    std::vector<std::vector<int>> rows(4, std::vector<int>(1));
     const size_t rounds = std::stoull(argv[3]);
     StopTokenDetector d(4);
     for (const auto& s : std::vector<std::vector<int>>{{7,8,9}, {4,4,5}, {99}}) {
@@ -30,7 +33,10 @@ int main(int argc, char** argv) {
           else if (mode == "early-stop") tokens[i] = (step + i) % 13;
           else return 2;
         }
-        if (!d.ProcessTokens(absl::MakeSpan(tokens)).ok()) return 1;
+        if (nested) {
+          for (size_t i = 0; i < rows.size(); ++i) rows[i][0] = tokens[i];
+          if (!d.ProcessTokens(rows).ok()) return 1;
+        } else if (!d.ProcessTokens(absl::MakeSpan(tokens)).ok()) return 1;
         for (int count : d.GetStepsBeforeStopTokens()) checksum += count;
         checksum += d.MaxPartialStopTokenLength(0);
       }
@@ -54,12 +60,30 @@ int main(int argc, char** argv) {
     else if (command == 'R') d->ResetBatch(values.at(0));
     else if (command == 'A') status = d->AddStopTokenSequence(values);
     else if (command == 'P') status = d->ProcessTokens(absl::MakeSpan(values));
+#ifdef RT_RS_CURRENT_MAIN
+    else if (command == 'M') {
+      if (!d->MarkForRollback(values.at(0))) status = absl::NotFoundError("missing singleton");
+    }
+#endif
+    else if (command == 'V') {
+      std::vector<std::vector<int>> rows;
+      for (size_t offset = 0; offset < values.size();) {
+        const size_t length = values.at(offset++);
+        std::vector<int> row;
+        for (size_t j = 0; j < length; ++j) row.push_back(values.at(offset++));
+        rows.push_back(std::move(row));
+      }
+      status = d->ProcessTokens(rows);
+    }
     else return 2;
     std::cout << static_cast<int>(status.code()) << ' ' << d->AllDone().value();
     for (size_t i = 0; i < d->GetStopTokensFound().size(); ++i) {
       std::cout << ' ' << d->GetStopTokensFound()[i] << ' '
                 << d->GetStepsBeforeStopTokens()[i] << ' '
                 << d->MaxPartialStopTokenLength(i);
+#ifdef RT_RS_CURRENT_MAIN
+      std::cout << ' ' << d->EndsWithRollbackToken(i);
+#endif
     }
     std::cout << '\n';
   }

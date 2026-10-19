@@ -65,7 +65,10 @@ The Rust API uses `NonZeroUsize` for batch size, `usize` for counters, and `i32`
 for token IDs. It returns `Option` for indexed progress. It does not emulate
 upstream signed-counter overflow, oversized batch truncation, invalid-index
 undefined behavior, constructor aborts or exact error strings. The nested
-`vector<vector<int>>` overload is not ported. Parity claims cover defined inputs
+`vector<vector<int>>` single-token-per-row overload is ported without an
+intermediate flatten allocation. Incorrect row lengths are rejected before
+any state changes, after batch-size validation and before missing-sequence
+validation, matching the native order. Parity claims cover defined inputs
 to the flat API within the C++ integer range.
 
 ## Reproduce verification
@@ -97,7 +100,9 @@ The verifier rejects changed reference sources and headers. It runs literal
 Rust unit tests, exhaustive binary token traces and deterministic random
 add/process/reset histories. After every operation it compares status codes,
 completion, stopped flags, discard counts and partial progress with C++.
-Failures save their input under `target/failed-trace.txt`. Results and environment
+The trace adapters consume trusted generated fixtures; malformed trace syntax
+can terminate them and is not a public parser/fuzzing contract. API shape errors
+are tested separately. Failures save their input under `target/failed-trace.txt`. Results and environment
 metadata are written to ignored `results.json`.
 
 The initial recorded run in `benchmarks/baseline.json` passed 452 traces with
@@ -171,10 +176,54 @@ not alongside the differential verifier or another benchmark/build.
 
 These samples come from a different CPU/compiler environment than the original
 baseline and must not be compared across machines. Both recorded cloud checks
-were run serially after the dependency build, without another benchmark job.
-Shared-host scheduling and the lack of CPU affinity/thermal control still apply.
+were run serially after this port's dependency build. Unrelated cloud jobs and
+shared-host scheduling were not controlled, so timing comparisons are provisional.
+The lack of CPU affinity/thermal control still applies.
 The current source digest in the A/B report identifies the working-tree library;
 its commit field records the parent checkout before the new port commit.
+
+## Pinned current-main compatibility
+
+The current-main comparison is pinned to upstream LiteRT-LM commit
+`e32526ccbc54fed8d7ba8fbf292c03572fba5081`, observed on 2026-10-19. It is not a
+claim of compatibility with future moving main. Fetch the exact object, then run:
+
+```sh
+git fetch https://github.com/google-ai-edge/LiteRT-LM.git e32526ccbc54fed8d7ba8fbf292c03572fba5081
+RT_RS_CURRENT_MAIN=1 python3 rust-port/verify.py
+RT_RS_CURRENT_MAIN=1 python3 rust-port/verify_greedy.py
+```
+
+The current-main stop detector adds singleton stop-token rollback marking.
+`mark_for_rollback` and `ends_with_rollback_token` now preserve its behavior:
+marks survive reset, per-item flags clear on reset or the next processed token,
+marking is not retroactive, duplicate additions retain marks, and the last
+simultaneous match controls the flag. Invalid input leaves all state untouched.
+This records the rollback decision only; it does not manipulate an executor or
+KV cache. The current-main greedy source/header are byte-identical to v0.18.0;
+the main-mode verifier checks that identity before testing.
+
+The main detector verifier materializes the exact pinned source/header and
+status-macro files under target/, without editing upstream tracked code. It
+compares rollback flags in addition to all previously observed state. Both
+nested and flat synthetic microbenchmarks run serially with equal checksums.
+The expanded compatibility run passes 582 traces / 60,736 operations at
+v0.18.0 and 713 traces / 86,492 operations at pinned main, plus 30 Rust unit
+tests. Reports are `benchmarks/cloud-stop-nested.json`,
+`benchmarks/cloud-stop-main.json`, and `benchmarks/cloud-greedy-main.json`.
+Use `RT_RS_SKIP_BENCHMARKS=1` for parity-only detector verification.
+Nested benchmarks preallocate caller row containers in both implementations;
+the C++ detector still flattens to a temporary vector per call, while Rust
+processes validated rows directly. No allocator instrumentation or whole-runtime
+speed claim is implied by this source-level allocation removal.
+
+## Continuous integration
+
+The Rust-only workflow runs offline locked unit tests, fmt and clippy on pinned
+Rust 1.70.0, with checkout pinned to a verified commit and read-only repository
+permissions. Native differential checks are separately reproducible with the
+commands above; they are not part of this lightweight workflow. Workflow success
+does not establish model inference correctness or Android device performance.
 
 ## Next integration gate
 

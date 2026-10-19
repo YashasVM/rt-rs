@@ -1,0 +1,12 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "cases": 11481,
+  "input_sha256": "98d033bff3f184c2f9ded5a4c319bee9968e257925c657bd5b1d81623440c0f1",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "extra_cxxflags": [],
+  "abseil": "20250512",
+  "scope": "TopKTokenIds k=1; positive shapes within C++ integer range; no runtime integration"
+}
