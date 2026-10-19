@@ -380,8 +380,23 @@ is slower on most random-bit workloads, typically about twice native
 conversion-plus-selection cost. Raw negative results are preserved in
 `benchmarks/cloud-half-branchy-random.json`; conversion/selection parity is in
 `benchmarks/cloud-half-parity.json`. This result does not justify selecting the
-prototype. A bounded branchless-key variant will be evaluated before further
-integration. No FP16 C ABI, native engine selection or model/device work is added.
+prototype. A separately retained branchless-key variant removes conditional key
+construction/update without changing lane masks or comparison order. In serial
+same-run A/B measurements it improves over the old Rust variant in every tested
+shape. Against complete native conversion plus selection, median ratios are
+3.73–6.32x for random, 1.63–2.14x for ascending and 3.46–5.24x for periodic
+inputs. Including equal host allocation/copy on both sides reduces these to
+2.53–3.86x, 1.50–1.83x and 2.19–3.37x respectively. Preserve the distribution
+differences, compiler confound and raw samples in `benchmarks/cloud-half-branchless-*.json`;
+these are not language-wide or model speedups. Independent read-only review
+confirmed the mask/key equivalence. No FP16 C ABI, native engine selection or
+model/device work is added.
+
+Benchmark builds reconstruct the original variant from retained baseline tree
+`d8ffb7957f35a6ac7ecf0fbb88e58450d314044e`, so a full-history checkout is required
+for this manual A/B benchmark. Rust-only CI does not run these timings. The
+fused implementation avoids a whole-shape float32 staging allocation (up to
+32 MiB in these shapes), but that is not a claim about GPU or total model memory.
 
 The benchmark includes complete native conversion plus selection, with a reused
 float32 buffer, not just a conversion microkernel. Optional hostcopy variants

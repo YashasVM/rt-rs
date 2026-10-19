@@ -61,8 +61,15 @@ attempting a safe fused path that avoids whole-vocabulary float32 staging.
 
 ## FP16 prototype
 
-Safe half conversion matches all65,536 native bit encodings; fused greedy matches
-10,995 native traces and34coreunit tests. The initial branch-heavy order-key
-implementation is slower on most random-bit workloads despite avoiding float32
-staging. Preserve the negative report; next evaluate a branchless equivalent,
-with the same exhaustive/differential checks, before any integration proposal.
+Safe half conversion matches all 65,536 native bit encodings; fused greedy matches
+10,995 native traces, with 34 core unit tests passing. The initial branch-heavy
+order-key implementation is slower on most random-bit workloads despite avoiding
+float32 staging; its negative report and baseline tree remain reproducible.
+The independently reviewed branchless equivalent wins all tested shapes versus
+that old Rust variant. Native conversion-plus-selection median ratios range
+1.63–6.32x across three distributions, or 1.50–3.86x with equal host-copy costs.
+Keep per-distribution samples and GCC-versus-LLVM/shared-host caveats visible.
+No FP16 unsafe ABI or engine integration exists. A bounded stateless native
+boundary experiment, with independent safety review and equivalent full-path
+validation, is the next justified step; real tensor readback/device/model
+measurements remain necessary before any runtime performance claim.

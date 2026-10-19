@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import platform
+import shutil
 import statistics
 from datetime import datetime, timezone
 from verify import PORT, TARGET, run
@@ -16,7 +17,8 @@ CANDIDATES = {'cpp_staged': ('half-reference-native', 'staged'),
               'cpp_hostcopy_staged': ('half-reference-native', 'staged-copy'),
               'rust_staged': ('release/half-trace', 'staged'),
               'rust_fused': ('release/half-trace', 'fused'),
-              'rust_hostcopy_fused': ('release/half-trace', 'fused-copy')}
+              'rust_hostcopy_fused': ('release/half-trace', 'fused-copy'),
+              'rust_fused_previous': ('release/half-trace-branchy', 'fused')}
 
 
 def hashes():
@@ -33,6 +35,20 @@ def main():
         run(['python3', PORT / 'verify_half.py'])
         report = json.loads((PORT / 'half-results.json').read_text())
         report['source_sha256'] = hashes()
+        previous_tree = 'd8ffb7957f35a6ac7ecf0fbb88e58450d314044e'
+        previous_root = TARGET / 'half-previous-source'
+        paths = run(['git', 'ls-tree', '-r', '--name-only', previous_tree, '--',
+                     'rust-port/Cargo.toml', 'rust-port/Cargo.lock', 'rust-port/src']).splitlines()
+        for path in paths:
+            destination = previous_root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(run(['git', 'show', f'{previous_tree}:{path}']))
+        previous_build = TARGET / 'half-previous-build'
+        run(['cargo', 'build', '--release', '--manifest-path', previous_root / 'rust-port/Cargo.toml',
+             '--target-dir', previous_build, '--offline', '--locked'])
+        shutil.copy2(previous_build / 'release/half-trace', TARGET / 'release/half-trace-branchy')
+        report['previous_fused_tree'] = previous_tree
+        report['previous_fused_source_sha256'] = json.loads((PORT / 'benchmarks/cloud-half-branchy-random.json').read_text())['source_sha256']
         report['binary_sha256'] = {p: hashlib.sha256((TARGET / p).read_bytes()).hexdigest()
                                    for p, _ in set(CANDIDATES.values())}
         build_path.write_text(json.dumps(report, indent=2) + '\n')

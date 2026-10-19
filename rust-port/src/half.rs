@@ -34,13 +34,12 @@ fn is_nan(bits: u16) -> bool {
 // equal maxima preserve the first zero regardless of its sign. NaN keys are
 // never used in comparisons, except a zero sentinel for permanently masked lanes.
 fn order_key(bits: u16) -> u16 {
-    if bits & 0x7fff == 0 {
-        0x8000
-    } else if bits & 0x8000 != 0 {
-        !bits
-    } else {
-        bits ^ 0x8000
-    }
+    // Branchless equivalent of sign-dependent monotone mapping. Random signs
+    // must not force a branch per vocabulary element. Both zeros share 0x8000.
+    let sign_mask = 0u16.wrapping_sub(bits >> 15);
+    let key = bits ^ (sign_mask | 0x8000);
+    let zero_mask = 0u16.wrapping_sub(u16::from(bits & 0x7fff == 0));
+    (key & !zero_mask) | (0x8000 & zero_mask)
 }
 
 fn tile_max_key(tile: &[u16]) -> Option<u16> {
@@ -53,16 +52,14 @@ fn tile_max_key(tile: &[u16]) -> Option<u16> {
     let mut masked = [false; 8];
     for i in 0..8 {
         masked[i] = is_nan(tile[i]);
-        if !masked[i] {
-            keys[i] = order_key(tile[i]);
-        }
+        let valid_mask = 0u16.wrapping_sub(u16::from(!masked[i]));
+        keys[i] = order_key(tile[i]) & valid_mask;
     }
     for group in tile[8..].chunks_exact(8) {
         for lane in 0..8 {
             let bits = group[lane];
-            if !masked[lane] && !is_nan(bits) {
-                keys[lane] = keys[lane].max(order_key(bits));
-            }
+            let valid_mask = 0u16.wrapping_sub(u16::from(!masked[lane] && !is_nan(bits)));
+            keys[lane] = keys[lane].max(order_key(bits) & valid_mask);
         }
     }
     // Every valid key is >0, so sentinel keys cannot beat lane zero.
