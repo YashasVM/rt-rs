@@ -330,7 +330,7 @@ per-step allocations after sizing but is not a zero-copy interface. These costs
 must be measured rather than assumed faster. A cloud native contract run also passes AddressSanitizer/UndefinedBehaviorSanitizer
 on the C++ adapter and harness; the Rust archive and Abseil are uninstrumented
 and leak detection was disabled. This is not whole-program sanitizer coverage.
-Rust-only CI includes the seven ABI
+Rust-only CI includes the nine ABI
 unit tests, not native C++ parity, sanitizer or full-engine integration tests.
 
 The first measured adapter boundary is slower, not faster. Against pinned main,
@@ -404,6 +404,41 @@ include an equal host allocation/copy of input halves on both sides. This is
 not GPU/NPU readback latency or TensorBuffer integration. Random/ordered synthetic
 half bit patterns are not captured model logits; GCC-vs-LLVM and shared-host
 limitations apply. No inference improvement is established.
+
+## Experimental FP16 native boundary
+
+The standalone `GreedyFp16TokenIds` C++ wrapper calls a stateless Rust ABI on
+`uint16_t` encodings, not native half-object memory. It borrows readable input
+and exclusive disjoint index output only for the synchronous call; no pointer
+is retained. Checked shape, pointer metadata, and native index limits precede
+output writes. Unexpected panics are caught but are not an atomic-output promise.
+C++ output ownership includes a flat export buffer and nested-row copy, whose
+cost belongs in the boundary benchmark. Production sampler targets are unchanged.
+
+Run `RT_RS_HALF_FFI=1 python3 rust-port/verify_half.py` for native-boundary
+differential checks and `python3 rust-port/benchmark_half.py --ffi --phase build`
+to prepare the optional bridge profiles. See `SAMPLER_INTEGRATION.md` for the
+real TensorBuffer readback, full sampler validation, and exact-log-probability
+scoring gates that prevent treating ID-only parity as complete sampler parity.
+
+The bridge passes the same 10,995 native differential traces. Nine ABI unit tests
+include every half encoding and invalid metadata; normal and C++ ASan/UBSan
+contracts pass (Rust/Abseil uninstrumented; leak detection disabled). Independent
+read-only unsafe review found no remaining blocker. An equivalent standalone GCC
+integer-key fused control also passes the shared trace corpus, plus 66,042
+independent row fixtures; it allocates nested output directly without an
+artificial flat-export handicap.
+
+Serial boundary medians versus original conversion-plus-selection are
+3.57–5.69x (random), 1.50–2.08x (ascending), and 3.32–5.43x (periodic).
+Including equal host-copy costs gives 2.39–3.86x, 1.50–1.84x, and 2.17–3.20x.
+Against the equivalent GCC fused control, the bridge is 1.84–4.02x faster without
+hostcopy and 1.56–3.28x with it across tested distributions. These are provisional
+shared-host, different-compiler results, not proof of a language advantage or
+best possible C++ implementation. All candidates and raw samples remain in
+`benchmarks/cloud-half-bridge-{random,ascending,periodic}.json`; no GPU readback,
+TensorBuffer write, exact scoring, or model inference was measured. The original
+production sampler remains unchanged.
 
 ## Next integration gate
 

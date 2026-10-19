@@ -20,6 +20,7 @@ function(rt_rs_link_standalone_adapter target root)
     DEPENDS "${root}/rust-port/ffi/Cargo.toml" "${root}/rust-port/ffi/Cargo.lock"
       "${root}/rust-port/ffi/src/lib.rs" "${root}/rust-port/Cargo.toml"
       "${root}/rust-port/src/lib.rs" "${root}/rust-port/src/greedy.rs"
+      "${root}/rust-port/src/half.rs"
     WORKING_DIRECTORY "${root}" VERBATIM)
   add_custom_target(rt_rs_stop_archive DEPENDS "${archive}")
   add_library(rt_rs_stop_ffi STATIC IMPORTED GLOBAL)

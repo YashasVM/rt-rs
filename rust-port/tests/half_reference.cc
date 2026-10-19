@@ -36,6 +36,12 @@
 #include "absl/types/span.h"
 #include "runtime/components/sampling_cpu_util.h"
 #include "tflite/types/half.h"
+#ifdef RT_RS_HALF_NATIVE_FUSED
+#include "rust-port/tests/half_fused_control.h"
+#endif
+#ifdef RT_RS_HALF_FFI
+#include "rust-port/native/greedy_rust.h"
+#endif
 
 namespace {
 
@@ -48,6 +54,34 @@ void ConvertFp16ToFp32(absl::Span<const uint16_t> fp16_values,
     std::memcpy(&half_val, fp16_values.data() + i, sizeof(uint16_t));
     out[i] = static_cast<float>(half_val);
   }
+}
+
+// The bridge borrows binary16 directly: no native float32 conversion/staging.
+// Keep the conversion command below independent, using the upstream oracle.
+absl::StatusOr<std::vector<std::vector<int>>> SelectHalf(
+    absl::Span<const uint16_t> values, std::vector<float>& converted,
+    int batch, int sequence) {
+#ifdef RT_RS_HALF_NATIVE_FUSED
+  if (batch <= 0 || sequence <= 0) return absl::InvalidArgumentError("Invalid shape");
+  const uint64_t positions = static_cast<uint64_t>(batch) * sequence;
+  if (positions > static_cast<uint64_t>(std::numeric_limits<int>::max()) ||
+      values.size() > static_cast<size_t>(std::numeric_limits<int>::max()) ||
+      values.size() % positions != 0) return absl::InvalidArgumentError("Invalid shape");
+  const size_t vocab = values.size() / positions;
+  // Natural native output allocation: do not handicap this control with a
+  // synthetic FFI export/copy buffer or float32 conversion.
+  std::vector<std::vector<int>> result(batch, std::vector<int>(sequence));
+  for (int b = 0; b < batch; ++b) for (int q = 0; q < sequence; ++q) {
+    result[b][q] = static_cast<int>(rt_rs_experiment::NativeFusedHalfTokenId(
+        values.subspan((static_cast<size_t>(b) * sequence + q) * vocab, vocab)));
+  }
+  return result;
+#elif defined(RT_RS_HALF_FFI)
+  return rt_rs_experiment::GreedyFp16TokenIds(values, batch, sequence);
+#else
+  ConvertFp16ToFp32(values, converted);
+  return litert::lm::TopKTokenIds(converted, 1, batch, sequence);
+#endif
 }
 
 }  // namespace
@@ -93,13 +127,13 @@ int main(int argc, char** argv) {
     for (int repeat = 0; repeat < rounds; ++repeat) {
       values[0] = repeat % 2 == 0 ? 0x3c00 : 0xbc00;
       // Optional host allocation+copy models staging cost, NOT device readback.
-      if (mode == "staged-copy") {
-        const std::vector<uint16_t> staging(values);
-        ConvertFp16ToFp32(staging, converted);
-      } else {
-        ConvertFp16ToFp32(values, converted);
-      }
-      auto ids = litert::lm::TopKTokenIds(converted, 1, batch, sequence);
+      auto ids = [&]() {
+        if (mode == "staged-copy") {
+          const std::vector<uint16_t> staging(values);
+          return SelectHalf(staging, converted, batch, sequence);
+        }
+        return SelectHalf(values, converted, batch, sequence);
+      }();
       if (!ids.ok()) return 3;
       for (const auto& row : *ids) for (int id : row) checksum += id;
     }
@@ -131,9 +165,10 @@ int main(int argc, char** argv) {
     std::vector<float> logits;
     // Keep an allocated element for an empty input to avoid null pointer
     // arithmetic in upstream, while the supplied span remains empty.
+#ifndef RT_RS_HALF_FFI
     logits.reserve(count + 1);
-    ConvertFp16ToFp32(fp16_values, logits);
-    auto result = litert::lm::TopKTokenIds(logits, 1, batch, sequence);
+#endif
+    auto result = SelectHalf(fp16_values, logits, batch, sequence);
     if (!result.ok()) {
       std::cout << "ERR\n";
       continue;

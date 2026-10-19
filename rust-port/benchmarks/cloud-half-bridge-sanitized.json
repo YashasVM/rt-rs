@@ -1,0 +1,45 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "litert": "3e49a3789864362f6069e0568435b584a38cf917",
+  "conversion_encodings": 65536,
+  "conversion_sha256": "0465aa5c1cbff7083dcf2d6ec7cd4a726118fd9650b9e9d5ca5e4dfce76af3d7",
+  "cases": 10995,
+  "traces_sha256": "97e456bf2a92c81c69cc2e5d9fe2537f61bb3fbecc26eacd9b2e10ded9d3639c",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "extra_cxxflags": [
+    "-O1",
+    "-fsanitize=address,undefined",
+    "-fno-omit-frame-pointer"
+  ],
+  "native_fused_control_cases": 10995,
+  "native_boundary_checked": true,
+  "native_boundary_cases": 10995,
+  "abseil": "20250512",
+  "binary_sha256": {
+    "half-reference-native": "a925f9e5c391618027eefc14046e5cb26451ef6a33a4959e3bb11a21d457882a",
+    "release/half-trace": "d688898e23e7862c1d2a67cb52c810453d764184f441060c68aa463ae3047cc2",
+    "half-reference-ffi": "c82c03a0f002aed3039bda5bea5f3f29b66768bf92af02e65c528d11e14f62f7",
+    "ffi/release/librt_rs_stop_ffi.a": "a534b14b3c57a7443160832dad4893202250b13d38bc094b4ff961393e0e18a8",
+    "half-reference-fused-control": "055185f61f5bc86afe0e7676d4cabad5afcb4635dfe9e16bf5695c4908ab8225"
+  },
+  "source_sha256": {
+    "src/half.rs": "74e1edcc16f59908254d4c09bcdd3d37b8ba10d11334b06698e24c0fadf64559",
+    "src/greedy.rs": "4dd1ebb48669cb514a6be4bfc5f5586865e03d165653d9f3888429701385de8a",
+    "src/bin/half_trace.rs": "21c9453d70495d457720ed4d3242d919f5994d20ebfe3356a6496b80f510d751",
+    "tests/half_reference.cc": "8bda28b0e809b9e4a2b88b7cb5036d6501ae8e6828aff79a54238e1e447107c2",
+    "verify_half.py": "582a39843f3b003b9bcc11b63362da935622a7843ba6e8cec0342d1b5deddfa2",
+    "Cargo.toml": "51c7b2e95d8ce6c78caf1ff05a3c5aced3cf46580b0e8d3c30535d40352f8b13",
+    "Cargo.lock": "ce5df30a0711e38188a9d9f5b66e45bb7c5737f66f55926aa05ca8ec1d99c3b9",
+    "native/greedy_rust.h": "ff999ba06145bf6f0963ac6ed0598635b811cea82deefec85187f20fb0bcb488",
+    "native/greedy_rust.cc": "0aecfef07d1d08045748832209b2d19134a8f9be0014928d89e912617d3ed832",
+    "native/stop_ffi.h": "00dba92f900aaf0e3f66be26a00d1609fa0c34e9c67144082c5b191b710a1b06",
+    "ffi/src/lib.rs": "d87496901b7b84271aaa08938e17ea718167258a7300fd7e49d3aee5b6bea43b",
+    "ffi/Cargo.toml": "ab831de95d3119884a4ada46880e35b6e77c9d7713bbe64ac2fe68ee14990537",
+    "ffi/Cargo.lock": "a75077356b464254f3a75a8af65aba5db42d4abdac293097291fc53fb7b552fa",
+    "tests/half_fused_control.h": "875676cf16c66749551dd076ad1d4608db8c4bbcf539b24644c65b4994d62e88"
+  },
+  "scope": "Safe fused binary16 greedy selection versus pinned native conversion+TopKTokenIds k1; optional standalone native-to-Rust boundary; no engine/model/device integration"
+}

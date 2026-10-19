@@ -413,7 +413,7 @@ pub unsafe extern "C" fn rt_rs_stop_rows_snapshot(
 /// Logits are readable for length f32 elements; output is writable for count
 /// i32 elements. Both allocations are live/aligned and mutually disjoint.
 /// Logits must not be concurrently mutated; output is exclusively writable
-/// for the entire call.
+/// for the entire call (no concurrent reads or writes).
 /// No pointer is retained. Null is allowed only for a zero-length input.
 /// Shape/range/pointer metadata errors leave all outputs unchanged. Panics are
 /// caught, but atomic output rollback is not promised for an unexpected panic.
@@ -447,6 +447,56 @@ pub unsafe extern "C" fn rt_rs_greedy_token_ids(
             for position in 0..positions {
                 let start = position * vocab;
                 let id = rt_rs_stop::greedy::greedy_token_id(&logits[start..start + vocab]);
+                // Bound follows length <= i32::MAX; empty vocab returns zero.
+                output.add(position).write(id as i32);
+            }
+        }
+        OK
+    }))
+    .unwrap_or(INTERNAL)
+}
+
+/// Select greedy k=1 indices directly from IEEE binary16 encodings.
+/// No float32 staging allocation or pointer retention occurs.
+///
+/// # Safety
+/// Logits are readable for length u16 binary16 encodings; output is writable for count
+/// i32 elements. Both allocations are live/aligned and mutually disjoint.
+/// Logits must not be concurrently mutated; output is exclusively writable
+/// for the entire call (no concurrent reads or writes).
+/// No pointer is retained. Null is allowed only for a zero-length input.
+/// Shape/range/pointer metadata errors leave all outputs unchanged. Panics are
+/// caught, but atomic output rollback is not promised for an unexpected panic.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_greedy_fp16_token_ids(
+    logits: *const u16,
+    length: usize,
+    batch: usize,
+    sequence: usize,
+    output: *mut i32,
+    count: usize,
+) -> i32 {
+    let Some(positions) = batch.checked_mul(sequence) else { return INVALID; };
+    if batch == 0
+        || sequence == 0
+        || positions > i32::MAX as usize
+        || length > i32::MAX as usize
+        || count != positions
+        || length % positions != 0
+        || !valid_buffer(logits, length)
+        || !valid_buffer(output, count)
+    {
+        return INVALID;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: metadata checked above; caller guarantees live, readable
+        // logits, disjoint writable outputs, and no concurrent mutation.
+        unsafe {
+            let logits = input(logits, length).expect("validated logits metadata");
+            let vocab = length / positions;
+            for position in 0..positions {
+                let start = position * vocab;
+                let id = rt_rs_stop::half::greedy_fp16_token_id(&logits[start..start + vocab]);
                 // Bound follows length <= i32::MAX; empty vocab returns zero.
                 output.add(position).write(id as i32);
             }
@@ -639,6 +689,115 @@ mod tests {
                 OK
             );
             assert_eq!(output, [0; 2]);
+        }
+    }
+
+    #[test]
+    fn fp16_boundary_rejects_metadata_before_writes() {
+        let logits = [0u16; 6];
+        let mut output = [99i32; 2];
+        // SAFETY: live disjoint buffers on success; every intentionally invalid
+        // metadata case is rejected before forming a slice or writing output.
+        unsafe {
+            for (length, batch, sequence, count) in [
+                (5, 2, 1, 2),
+                (6, 0, 1, 2),
+                (6, 2, 0, 2),
+                (6, usize::MAX, 2, 2),
+                (0, i32::MAX as usize + 1, 1, 2),
+                (i32::MAX as usize + 1, 1, 1, 1),
+                (6, 2, 1, 1),
+                (6, 2, 1, 0),
+            ] {
+                assert_eq!(
+                    rt_rs_greedy_fp16_token_ids(
+                        logits.as_ptr(),
+                        length,
+                        batch,
+                        sequence,
+                        output.as_mut_ptr(),
+                        count
+                    ),
+                    INVALID
+                );
+                assert_eq!(output, [99; 2]);
+            }
+            let misaligned_input = logits.as_ptr().cast::<u8>().add(1).cast::<u16>();
+            let misaligned_output = output.as_mut_ptr().cast::<u8>().add(1).cast::<i32>();
+            for input in [ptr::null(), misaligned_input] {
+                assert_eq!(
+                    rt_rs_greedy_fp16_token_ids(input, 6, 2, 1, output.as_mut_ptr(), 2),
+                    INVALID
+                );
+                assert_eq!(output, [99; 2]);
+            }
+            for out in [ptr::null_mut(), misaligned_output] {
+                assert_eq!(
+                    rt_rs_greedy_fp16_token_ids(logits.as_ptr(), 6, 2, 1, out, 2),
+                    INVALID
+                );
+                assert_eq!(output, [99; 2]);
+            }
+            assert_eq!(
+                rt_rs_greedy_fp16_token_ids(ptr::null(), 0, 2, 1, output.as_mut_ptr(), 2),
+                OK
+            );
+            assert_eq!(output, [0; 2]);
+        }
+    }
+
+    fn check_fp16_boundary(logits: &[u16], batch: usize, sequence: usize) {
+        let positions = batch * sequence;
+        let vocab = logits.len() / positions;
+        let converted: Vec<_> = logits
+            .iter()
+            .copied()
+            .map(rt_rs_stop::half::half_to_f32)
+            .collect();
+        let mut output = vec![-1; positions];
+        // SAFETY: immutable input and exclusive disjoint output remain live.
+        assert_eq!(
+            unsafe {
+                rt_rs_greedy_fp16_token_ids(
+                    logits.as_ptr(),
+                    logits.len(),
+                    batch,
+                    sequence,
+                    output.as_mut_ptr(),
+                    positions,
+                )
+            },
+            OK
+        );
+        for (position, actual) in output.into_iter().enumerate() {
+            let start = position * vocab;
+            assert_eq!(
+                actual as usize,
+                rt_rs_stop::greedy::greedy_token_id(&converted[start..start + vocab])
+            );
+        }
+    }
+
+    #[test]
+    fn fp16_boundary_covers_every_encoding_and_tiled_nan_ties() {
+        // Exercise every encoding as a seed and as a later competing value,
+        // including signed zero, subnormals, infinities and both NaN classes.
+        for bits in 0..=u16::MAX {
+            check_fp16_boundary(&[bits, 0, 0x3c00, 0x8000, bits, 0x3c00], 2, 1);
+        }
+        for vocab in [1, 7, 8, 127, 128, 129, 255, 256, 257] {
+            for index in 0..vocab {
+                for special in [0x7c00, 0x7e00, 0x7c01, 0xfc00, 0x8000] {
+                    let mut logits = vec![0x3c00; vocab * 4];
+                    logits[index] = special;
+                    logits[vocab + index] = 0x4000;
+                    logits[vocab * 2 + index] = special;
+                    logits[vocab * 2] = 0x7e01;
+                    logits[vocab * 3 + index] = 0x4000;
+                    logits[vocab * 4 - 1] = 0x4000;
+                    check_fp16_boundary(&logits, 2, 2);
+                }
+            }
         }
     }
 

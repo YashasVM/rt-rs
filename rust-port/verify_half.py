@@ -81,14 +81,52 @@ def main():
                 (TARGET / 'failed-half-trace.txt').write_text(cases[i])
                 raise AssertionError(f'Half selection case {i}: native={left} Rust={right}')
         raise AssertionError('Selection output length differs')
+    native_boundary = os.environ.get('RT_RS_HALF_FFI') == '1'
+    binaries = [reference, rust]
+    sources = ['src/half.rs', 'src/greedy.rs', 'src/bin/half_trace.rs',
+               'tests/half_reference.cc', 'verify_half.py', 'Cargo.toml', 'Cargo.lock']
+    if native_boundary:
+        run(['cargo', 'test', '--manifest-path', PORT / 'ffi/Cargo.toml', '--locked', '--offline'])
+        run(['cargo', 'build', '--release', '--manifest-path', PORT / 'ffi/Cargo.toml',
+             '--target-dir', TARGET / 'ffi', '--locked', '--offline'])
+        bridge = TARGET / 'half-reference-ffi'
+        archive = TARGET / 'ffi/release/librt_rs_stop_ffi.a'
+        run([cpp, '-std=c++20', '-O3', '-DNDEBUG', *extra, '-DRT_RS_HALF_FFI',
+             '-I', ROOT, '-I', LITERT, PORT / 'tests/half_reference.cc',
+             PORT / 'native/greedy_rust.cc', archive, '-o', bridge,
+             *flags, '-ldl', '-lpthread', '-lm'])
+        bridge_actual = run([bridge], input=inputs)
+        if bridge_actual != expected:
+            for i, (left, right) in enumerate(zip(expected.splitlines(), bridge_actual.splitlines())):
+                if left != right:
+                    (TARGET / 'failed-half-ffi-trace.txt').write_text(cases[i])
+                    raise AssertionError(f'Half bridge case {i}: native={left} bridge={right}')
+            raise AssertionError('Half bridge output length differs')
+        # Even this build must preserve the real upstream conversion oracle.
+        assert run([bridge, 'convert']) == conversion
+        binaries += [bridge, archive]
+        sources += ['native/greedy_rust.h', 'native/greedy_rust.cc', 'native/stop_ffi.h',
+                    'ffi/src/lib.rs', 'ffi/Cargo.toml', 'ffi/Cargo.lock']
+    control = TARGET / 'half-reference-fused-control'
+    run([cpp, '-std=c++20', '-O3', '-DNDEBUG', *extra, '-DRT_RS_HALF_NATIVE_FUSED',
+         '-I', ROOT, '-I', LITERT, PORT / 'tests/half_reference.cc',
+         '-o', control, *flags])
+    assert run([control], input=inputs) == expected, 'Native fused control differs'
+    assert run([control, 'convert']) == conversion
+    binaries.append(control)
+    sources.append('tests/half_fused_control.h')
     report = {'baseline': CURRENT_MAIN, 'compatibility_baseline': BASELINE, 'litert': LITERT_BASELINE,
               'conversion_encodings': 65536, 'conversion_sha256': hashlib.sha256(conversion.encode()).hexdigest(),
               'cases': len(cases), 'traces_sha256': hashlib.sha256(inputs.encode()).hexdigest(),
               'platform': platform.platform(), 'rustc': run(['rustc', '--version']).strip(),
               'cxx': run([cpp, '--version']).splitlines()[0], 'extra_cxxflags': extra,
-              'source_sha256': {p: hashlib.sha256((PORT / p).read_bytes()).hexdigest() for p in
-                               ['src/half.rs', 'src/bin/half_trace.rs', 'tests/half_reference.cc']},
-              'scope': 'Safe fused binary16 greedy selection versus pinned native conversion+TopKTokenIds k1; no engine/model/device integration'}
+              'native_fused_control_cases': len(cases),
+              'native_boundary_checked': native_boundary,
+              'native_boundary_cases': len(cases) if native_boundary else 0,
+              'abseil': run(['pkg-config', '--modversion', 'absl_status']).strip(),
+              'binary_sha256': {str(p.relative_to(TARGET)): hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries},
+              'source_sha256': {p: hashlib.sha256((PORT / p).read_bytes()).hexdigest() for p in sources},
+              'scope': 'Safe fused binary16 greedy selection versus pinned native conversion+TopKTokenIds k1; optional standalone native-to-Rust boundary; no engine/model/device integration'}
     (PORT / 'half-results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
 

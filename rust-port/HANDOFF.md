@@ -73,3 +73,15 @@ No FP16 unsafe ABI or engine integration exists. A bounded stateless native
 boundary experiment, with independent safety review and equivalent full-path
 validation, is the next justified step; real tensor readback/device/model
 measurements remain necessary before any runtime performance claim.
+
+## FP16 native boundary checkpoint
+
+The standalone stateless binary16 ABI and owned C++ wrapper now pass 10,995
+native differential traces, nine ABI tests, and normal/sanitized native contracts.
+Independent unsafe review found no blocker; production targets remain unchanged.
+Equivalent GCC fused control is retained alongside original conversion+selection
+and prior slower Rust implementation. Boundary gains persist across random,
+ascending, and periodic profiles, with exact per-distribution raw samples and
+compiler/copy-cost caveats in README and benchmarks. Do not generalize to Android
+or inference. `SAMPLER_INTEGRATION.md` records actual TensorBuffer, validation,
+RNG and exact-log-probability gates before a future engine option.
