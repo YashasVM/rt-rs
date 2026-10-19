@@ -10,3 +10,7 @@ __pycache__/
 /native-main-results.json
 
 /greedy-benchmark-results.json
+
+/half-results.json
+
+/half-benchmark-results.json

@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod greedy;
+pub mod half;
 
 use std::num::NonZeroUsize;
 

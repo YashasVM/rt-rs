@@ -15,3 +15,7 @@ path = "src/bin/stop_trace.rs"
 [[bin]]
 name = "greedy-trace"
 path = "src/bin/greedy_trace.rs"
+
+[[bin]]
+name = "half-trace"
+path = "src/bin/half_trace.rs"

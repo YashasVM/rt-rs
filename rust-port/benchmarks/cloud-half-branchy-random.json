@@ -1,0 +1,666 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "litert": "3e49a3789864362f6069e0568435b584a38cf917",
+  "conversion_encodings": 65536,
+  "conversion_sha256": "0465aa5c1cbff7083dcf2d6ec7cd4a726118fd9650b9e9d5ca5e4dfce76af3d7",
+  "cases": 10995,
+  "traces_sha256": "97e456bf2a92c81c69cc2e5d9fe2537f61bb3fbecc26eacd9b2e10ded9d3639c",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "extra_cxxflags": [],
+  "source_sha256": {
+    "src/half.rs": "5bbb214f39f7425a28c74a72bf6c8f515e543bcf33f840c2d54e35ff00adea7b",
+    "src/greedy.rs": "4dd1ebb48669cb514a6be4bfc5f5586865e03d165653d9f3888429701385de8a",
+    "src/bin/half_trace.rs": "21c9453d70495d457720ed4d3242d919f5994d20ebfe3356a6496b80f510d751",
+    "tests/half_reference.cc": "591043759d395c25a0eaca1fba9ac3e30f6de8f7eda579735b0ec75dfe815db9",
+    "benchmark_half.py": "41706680f63b4d4b773e98815dbe1f92fa084cbed0d35633cb30009a92c30c4b"
+  },
+  "scope": "Native conversion+selection versus safe fused half reduction; hostcopy means host allocation+copy, never GPU/device readback. No FFI/full-engine/model integration.",
+  "binary_sha256": {
+    "half-reference-native": "a83bc6a583f4eca4d659a5d2c7806140b526ce30b602ecd2552ab31dd15ca186",
+    "release/half-trace": "caa99cc754de82142691af369a16723c30b56bd9f8bc23a445b59228464b741a"
+  },
+  "measurement_utc": "2026-10-19T21:03:36.555799+00:00",
+  "input_pattern": "random",
+  "timing_status": "Provisional shared-cloud-host microbenchmarks; known project workers idle, no affinity/thermal/frequency control. GCC versus Rust LLVM.",
+  "samples": [
+    {
+      "vocab": 32768,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 61,
+      "checksum": 365390,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          50447.24590163935,
+          54354.70491803279,
+          55679.0,
+          70570.77049180328,
+          97266.19672131147
+        ],
+        "cpp_hostcopy_staged": [
+          101036.0,
+          51942.59016393442,
+          47606.2131147541,
+          68278.45901639345,
+          82774.86885245901
+        ],
+        "rust_staged": [
+          48950.54098360656,
+          52999.62295081967,
+          67580.03278688525,
+          50320.32786885246,
+          45392.2131147541
+        ],
+        "rust_fused": [
+          37998.91803278688,
+          40103.08196721312,
+          40457.54098360656,
+          51172.098360655735,
+          46059.45901639344
+        ],
+        "rust_hostcopy_fused": [
+          39241.770491803276,
+          55235.45901639344,
+          44167.901639344265,
+          40797.57377049181,
+          44700.67213114754
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 55679.0,
+        "cpp_hostcopy_staged": 68278.45901639345,
+        "rust_staged": 50320.32786885246,
+        "rust_fused": 40457.54098360656,
+        "rust_hostcopy_fused": 44167.901639344265
+      },
+      "float32_staging_bytes": 131072,
+      "optional_half_hostcopy_bytes": 65536
+    },
+    {
+      "vocab": 32768,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 15,
+      "checksum": 1537605,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          58212.816666666666,
+          61918.433333333334,
+          49333.9,
+          65057.5,
+          84871.45
+        ],
+        "cpp_hostcopy_staged": [
+          59410.96666666667,
+          65298.88333333333,
+          162939.2,
+          61517.833333333336,
+          87551.16666666667
+        ],
+        "rust_staged": [
+          65270.0,
+          59541.666666666664,
+          55957.416666666664,
+          87998.51666666666,
+          93694.8
+        ],
+        "rust_fused": [
+          128526.43333333333,
+          189609.1,
+          149677.25,
+          124467.8,
+          174164.91666666666
+        ],
+        "rust_hostcopy_fused": [
+          125000.11666666667,
+          160101.33333333334,
+          138933.51666666666,
+          148430.53333333333,
+          160429.16666666666
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 61918.433333333334,
+        "cpp_hostcopy_staged": 65298.88333333333,
+        "rust_staged": 65270.0,
+        "rust_fused": 149677.25,
+        "rust_hostcopy_fused": 148430.53333333333
+      },
+      "float32_staging_bytes": 524288,
+      "optional_half_hostcopy_bytes": 262144
+    },
+    {
+      "vocab": 32768,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 7,
+      "checksum": 1103242,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          55287.857142857145,
+          80768.94642857143,
+          58361.25,
+          60956.607142857145,
+          61143.5
+        ],
+        "cpp_hostcopy_staged": [
+          69501.30357142857,
+          86250.73214285714,
+          62143.03571428572,
+          82691.07142857143,
+          68468.14285714286
+        ],
+        "rust_staged": [
+          60597.482142857145,
+          66136.21428571429,
+          69099.08928571429,
+          84026.83928571429,
+          62566.53571428572
+        ],
+        "rust_fused": [
+          169113.48214285713,
+          125272.75,
+          128007.76785714286,
+          141127.42857142858,
+          133439.19642857142
+        ],
+        "rust_hostcopy_fused": [
+          135991.82142857142,
+          161089.0357142857,
+          160164.07142857142,
+          162025.80357142858,
+          136464.48214285713
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 60956.607142857145,
+        "cpp_hostcopy_staged": 69501.30357142857,
+        "rust_staged": 66136.21428571429,
+        "rust_fused": 133439.19642857142,
+        "rust_hostcopy_fused": 160164.07142857142
+      },
+      "float32_staging_bytes": 1048576,
+      "optional_half_hostcopy_bytes": 524288
+    },
+    {
+      "vocab": 32768,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 2,
+      "checksum": 1137544,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          82684.4375,
+          100099.75,
+          93490.625,
+          80491.03125,
+          93084.921875
+        ],
+        "cpp_hostcopy_staged": [
+          93498.984375,
+          92743.78125,
+          97158.4375,
+          97527.09375,
+          94746.328125
+        ],
+        "rust_staged": [
+          73455.09375,
+          75491.765625,
+          145511.203125,
+          75301.625,
+          71476.328125
+        ],
+        "rust_fused": [
+          147609.828125,
+          152466.40625,
+          143121.171875,
+          248975.703125,
+          145763.0
+        ],
+        "rust_hostcopy_fused": [
+          176577.53125,
+          188313.859375,
+          166235.1875,
+          150326.609375,
+          144419.234375
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 93084.921875,
+        "cpp_hostcopy_staged": 94746.328125,
+        "rust_staged": 75301.625,
+        "rust_fused": 147609.828125,
+        "rust_hostcopy_fused": 166235.1875
+      },
+      "float32_staging_bytes": 4194304,
+      "optional_half_hostcopy_bytes": 2097152
+    },
+    {
+      "vocab": 131072,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 15,
+      "checksum": 980940,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          213269.0,
+          231119.33333333334,
+          222989.06666666668,
+          274230.5333333333,
+          255605.0
+        ],
+        "cpp_hostcopy_staged": [
+          262494.13333333336,
+          252603.8,
+          230551.8,
+          263792.06666666665,
+          224120.8
+        ],
+        "rust_staged": [
+          443412.6,
+          251789.93333333332,
+          242001.13333333333,
+          203794.73333333334,
+          251747.86666666667
+        ],
+        "rust_fused": [
+          489140.73333333334,
+          489473.2,
+          517319.3333333333,
+          507244.06666666665,
+          530702.2
+        ],
+        "rust_hostcopy_fused": [
+          493284.26666666666,
+          633263.9333333333,
+          564882.4666666667,
+          500529.2,
+          545228.8
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 231119.33333333334,
+        "cpp_hostcopy_staged": 252603.8,
+        "rust_staged": 251747.86666666667,
+        "rust_fused": 507244.06666666665,
+        "rust_hostcopy_fused": 545228.8
+      },
+      "float32_staging_bytes": 524288,
+      "optional_half_hostcopy_bytes": 262144
+    },
+    {
+      "vocab": 131072,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 3,
+      "checksum": 570525,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          225168.66666666666,
+          265119.9166666667,
+          285849.5833333333,
+          329951.25,
+          371252.0
+        ],
+        "cpp_hostcopy_staged": [
+          326736.4166666667,
+          333933.0833333333,
+          296652.5833333333,
+          398386.8333333333,
+          324810.0833333333
+        ],
+        "rust_staged": [
+          243108.33333333334,
+          250412.66666666666,
+          315041.1666666667,
+          278067.0,
+          256121.33333333334
+        ],
+        "rust_fused": [
+          499474.1666666667,
+          626683.9166666666,
+          550066.4166666666,
+          671299.75,
+          567846.6666666666
+        ],
+        "rust_hostcopy_fused": [
+          693600.9166666666,
+          579495.0833333334,
+          534830.9166666666,
+          591353.0833333334,
+          720578.3333333334
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 285849.5833333333,
+        "cpp_hostcopy_staged": 326736.4166666667,
+        "rust_staged": 256121.33333333334,
+        "rust_fused": 567846.6666666666,
+        "rust_hostcopy_fused": 591353.0833333334
+      },
+      "float32_staging_bytes": 2097152,
+      "optional_half_hostcopy_bytes": 1048576
+    },
+    {
+      "vocab": 131072,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 2,
+      "checksum": 764828,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          517441.5,
+          278407.0625,
+          273209.25,
+          292059.5625,
+          311109.0
+        ],
+        "cpp_hostcopy_staged": [
+          412397.75,
+          349823.1875,
+          349130.8125,
+          714756.625,
+          414355.0625
+        ],
+        "rust_staged": [
+          336983.0625,
+          272324.75,
+          344179.0,
+          278337.0,
+          364556.0625
+        ],
+        "rust_fused": [
+          576331.8125,
+          993054.1875,
+          543319.375,
+          507530.25,
+          661263.3125
+        ],
+        "rust_hostcopy_fused": [
+          744727.25,
+          1013664.75,
+          589896.0625,
+          617552.25,
+          673573.125
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 292059.5625,
+        "cpp_hostcopy_staged": 412397.75,
+        "rust_staged": 336983.0625,
+        "rust_fused": 576331.8125,
+        "rust_hostcopy_fused": 673573.125
+      },
+      "float32_staging_bytes": 4194304,
+      "optional_half_hostcopy_bytes": 2097152
+    },
+    {
+      "vocab": 131072,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 2,
+      "checksum": 2494476,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          292549.5625,
+          269338.203125,
+          269321.3125,
+          309178.75,
+          284239.640625
+        ],
+        "cpp_hostcopy_staged": [
+          454239.734375,
+          395916.75,
+          393892.28125,
+          395485.625,
+          390059.609375
+        ],
+        "rust_staged": [
+          303721.75,
+          314583.78125,
+          290356.765625,
+          283597.109375,
+          299005.875
+        ],
+        "rust_fused": [
+          568948.75,
+          632329.65625,
+          581973.140625,
+          555187.796875,
+          529825.703125
+        ],
+        "rust_hostcopy_fused": [
+          633475.34375,
+          660749.546875,
+          646259.046875,
+          630149.234375,
+          598978.984375
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 284239.640625,
+        "cpp_hostcopy_staged": 395485.625,
+        "rust_staged": 299005.875,
+        "rust_fused": 568948.75,
+        "rust_hostcopy_fused": 633475.34375
+      },
+      "float32_staging_bytes": 16777216,
+      "optional_half_hostcopy_bytes": 8388608
+    },
+    {
+      "vocab": 262144,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 7,
+      "checksum": 457772,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          421266.71428571426,
+          480480.5714285714,
+          419615.71428571426,
+          467977.4285714286,
+          572156.2857142857
+        ],
+        "cpp_hostcopy_staged": [
+          466277.5714285714,
+          580805.1428571428,
+          480855.4285714286,
+          486473.85714285716,
+          752973.0
+        ],
+        "rust_staged": [
+          696037.8571428572,
+          454758.85714285716,
+          465592.4285714286,
+          440392.85714285716,
+          513454.71428571426
+        ],
+        "rust_fused": [
+          1098147.0,
+          1011101.2857142857,
+          1037780.0,
+          1134370.4285714286,
+          1342148.7142857143
+        ],
+        "rust_hostcopy_fused": [
+          1018528.1428571428,
+          1239233.142857143,
+          1192276.4285714286,
+          1213636.0,
+          1074113.5714285714
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 467977.4285714286,
+        "cpp_hostcopy_staged": 486473.85714285716,
+        "rust_staged": 465592.4285714286,
+        "rust_fused": 1098147.0,
+        "rust_hostcopy_fused": 1192276.4285714286
+      },
+      "float32_staging_bytes": 1048576,
+      "optional_half_hostcopy_bytes": 524288
+    },
+    {
+      "vocab": 262144,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 2,
+      "checksum": 438788,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          535731.0,
+          567406.375,
+          557829.5,
+          563773.375,
+          569363.125
+        ],
+        "cpp_hostcopy_staged": [
+          898922.5,
+          856547.125,
+          782183.625,
+          671889.375,
+          838934.375
+        ],
+        "rust_staged": [
+          651036.625,
+          621717.25,
+          607271.625,
+          528324.875,
+          613169.375
+        ],
+        "rust_fused": [
+          1581764.75,
+          1168295.875,
+          1015880.5,
+          1049398.75,
+          1109084.0
+        ],
+        "rust_hostcopy_fused": [
+          1553310.5,
+          1138813.75,
+          1196457.25,
+          1165084.875,
+          1242643.375
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 563773.375,
+        "cpp_hostcopy_staged": 838934.375,
+        "rust_staged": 613169.375,
+        "rust_fused": 1109084.0,
+        "rust_hostcopy_fused": 1196457.25
+      },
+      "float32_staging_bytes": 4194304,
+      "optional_half_hostcopy_bytes": 2097152
+    },
+    {
+      "vocab": 262144,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 2,
+      "checksum": 603628,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          757480.8125,
+          553532.625,
+          524956.3125,
+          556269.875,
+          572898.75
+        ],
+        "cpp_hostcopy_staged": [
+          740836.875,
+          745760.625,
+          785985.125,
+          867595.3125,
+          758881.0
+        ],
+        "rust_staged": [
+          695713.75,
+          673649.75,
+          552219.375,
+          558380.5625,
+          544092.125
+        ],
+        "rust_fused": [
+          997759.5,
+          1177922.9375,
+          1273421.625,
+          1078776.25,
+          1024692.625
+        ],
+        "rust_hostcopy_fused": [
+          1265757.5625,
+          1184249.375,
+          1165905.375,
+          1130518.1875,
+          1260210.4375
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 556269.875,
+        "cpp_hostcopy_staged": 758881.0,
+        "rust_staged": 558380.5625,
+        "rust_fused": 1078776.25,
+        "rust_hostcopy_fused": 1184249.375
+      },
+      "float32_staging_bytes": 8388608,
+      "optional_half_hostcopy_bytes": 4194304
+    },
+    {
+      "vocab": 262144,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 2,
+      "checksum": 2256944,
+      "ns_per_position_samples": {
+        "cpp_staged": [
+          611186.46875,
+          562832.609375,
+          613830.796875,
+          589912.0,
+          608753.59375
+        ],
+        "cpp_hostcopy_staged": [
+          863110.09375,
+          783989.71875,
+          906004.140625,
+          729470.4375,
+          829252.84375
+        ],
+        "rust_staged": [
+          554231.65625,
+          623518.890625,
+          736216.5625,
+          783075.046875,
+          698261.78125
+        ],
+        "rust_fused": [
+          1046151.734375,
+          1123518.71875,
+          1119258.375,
+          1138126.90625,
+          1322447.453125
+        ],
+        "rust_hostcopy_fused": [
+          1230982.359375,
+          1210089.34375,
+          1193374.46875,
+          1426785.71875,
+          1535937.265625
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_staged": 608753.59375,
+        "cpp_hostcopy_staged": 829252.84375,
+        "rust_staged": 698261.78125,
+        "rust_fused": 1123518.71875,
+        "rust_hostcopy_fused": 1230982.359375
+      },
+      "float32_staging_bytes": 33554432,
+      "optional_half_hostcopy_bytes": 16777216
+    }
+  ]
+}

@@ -58,3 +58,11 @@ instrumented). Periodic/random/ascending/descending profiles preserve all raw
 samples and GCC-versus-LLVM caveats. Results are component evidence, not Android
 or inference gains. Next profile native FP16 conversion plus selection before
 attempting a safe fused path that avoids whole-vocabulary float32 staging.
+
+## FP16 prototype
+
+Safe half conversion matches all65,536 native bit encodings; fused greedy matches
+10,995 native traces and34coreunit tests. The initial branch-heavy order-key
+implementation is slower on most random-bit workloads despite avoiding float32
+staging. Preserve the negative report; next evaluate a branchless equivalent,
+with the same exhaustive/differential checks, before any integration proposal.

@@ -359,6 +359,37 @@ Rust archive in the final flattened archive registry, and builds/tests of those
 actual targets. Standalone link success cannot establish either requirement.
 No Android, model inference, device performance or end-to-end gain is validated.
 
+## Safe FP16 conversion and fused selection experiment
+
+`src/half.rs` ports exact binary16 conversion and a no-float32-staging greedy
+reduction. It uses an integer order mapping with signed zeros collapsed and
+explicit permanent NaN lane masks, preserving the pinned eight-lane/128-element
+comparison order. It does not quantize values or change selection quality.
+Native validation exhausts all 65,536 encodings (including signaling-NaN quieting,
+payload/sign preservation and subnormals), plus 10,995 selection traces.
+Independent read-only review checked the ordering/masking and allocation proofs.
+
+```sh
+python3 rust-port/verify_half.py
+python3 rust-port/benchmark_half.py --phase build
+python3 rust-port/benchmark_half.py --phase run --pattern random
+```
+
+The initial branch-heavy fused prototype saves the float32 staging buffer but
+is slower on most random-bit workloads, typically about twice native
+conversion-plus-selection cost. Raw negative results are preserved in
+`benchmarks/cloud-half-branchy-random.json`; conversion/selection parity is in
+`benchmarks/cloud-half-parity.json`. This result does not justify selecting the
+prototype. A bounded branchless-key variant will be evaluated before further
+integration. No FP16 C ABI, native engine selection or model/device work is added.
+
+The benchmark includes complete native conversion plus selection, with a reused
+float32 buffer, not just a conversion microkernel. Optional hostcopy variants
+include an equal host allocation/copy of input halves on both sides. This is
+not GPU/NPU readback latency or TensorBuffer integration. Random/ordered synthetic
+half bit patterns are not captured model logits; GCC-vs-LLVM and shared-host
+limitations apply. No inference improvement is established.
+
 ## Next integration gate
 
 Before adding an engine bridge, audit `v0.18.0` native callback and cancellation

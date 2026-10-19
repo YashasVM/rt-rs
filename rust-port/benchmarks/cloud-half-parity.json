@@ -1,0 +1,19 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "litert": "3e49a3789864362f6069e0568435b584a38cf917",
+  "conversion_encodings": 65536,
+  "conversion_sha256": "0465aa5c1cbff7083dcf2d6ec7cd4a726118fd9650b9e9d5ca5e4dfce76af3d7",
+  "cases": 10995,
+  "traces_sha256": "97e456bf2a92c81c69cc2e5d9fe2537f61bb3fbecc26eacd9b2e10ded9d3639c",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "extra_cxxflags": [],
+  "source_sha256": {
+    "src/half.rs": "5bbb214f39f7425a28c74a72bf6c8f515e543bcf33f840c2d54e35ff00adea7b",
+    "src/bin/half_trace.rs": "21c9453d70495d457720ed4d3242d919f5994d20ebfe3356a6496b80f510d751",
+    "tests/half_reference.cc": "591043759d395c25a0eaca1fba9ac3e30f6de8f7eda579735b0ec75dfe815db9"
+  },
+  "scope": "Safe fused binary16 greedy selection versus pinned native conversion+TopKTokenIds k1; no engine/model/device integration"
+}
