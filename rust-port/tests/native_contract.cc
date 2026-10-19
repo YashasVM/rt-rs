@@ -59,6 +59,18 @@ int main() {
     REQUIRE(source.MaxPartialStopTokenLength(0) == 1);
   }
 #endif
+  {
+    StopTokenDetector detector(1);
+    REQUIRE(detector.AddStopTokenSequence({0}).ok());
+    // Public getters can legally supply inputs; references remain eagerly synced.
+    const auto& discard = detector.GetStepsBeforeStopTokens();
+    const auto& found = detector.GetStopTokensFound();
+    REQUIRE(detector.ProcessTokens(discard).ok());
+    REQUIRE(discard[0] == 1);
+    REQUIRE(found[0]);
+    REQUIRE(detector.ProcessTokens(discard).ok());
+    REQUIRE(discard[0] == 2);
+  }
   for (int repeat = 0; repeat < 1000; ++repeat) {
     StopTokenDetector original(2);
     REQUIRE(original.AddStopTokenSequence({1, 2}).ok());

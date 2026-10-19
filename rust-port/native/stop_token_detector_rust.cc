@@ -78,15 +78,19 @@ void StopTokenDetector::ResetBatch(size_t batch) {
   ABSL_CHECK_OK(Refresh());
 }
 absl::Status StopTokenDetector::ProcessTokens(absl::Span<const int> tokens) {
-  auto status = Status(rt_rs_stop_process(detector_.get(), tokens.data(), tokens.size()));
-  return status.ok() ? Refresh() : status;
+  auto status = Status(rt_rs_stop_process_snapshot(detector_.get(), tokens.data(), tokens.size(),
+      flags_.data(), discard_.data(), partial_.data(), rollback_.data()));
+  if (status.ok()) for (size_t i = 0; i < found_.size(); ++i) found_[i] = flags_[i] != 0;
+  return status;
 }
 absl::Status StopTokenDetector::ProcessTokens(const std::vector<std::vector<int>>& tokens) {
   if (tokens.size() != found_.size()) return absl::InvalidArgumentError("Batch size mismatch");
   for (const auto& row : tokens) if (row.size() != 1) return absl::InternalError("Expected singleton row");
   for (size_t i = 0; i < tokens.size(); ++i) row_pointers_[i] = tokens[i].data();
-  auto status = Status(rt_rs_stop_process_rows(detector_.get(), row_pointers_.data(), row_lengths_.data(), tokens.size()));
-  return status.ok() ? Refresh() : status;
+  auto status = Status(rt_rs_stop_rows_snapshot(detector_.get(), row_pointers_.data(), row_lengths_.data(), tokens.size(),
+      flags_.data(), discard_.data(), partial_.data(), rollback_.data()));
+  if (status.ok()) for (size_t i = 0; i < found_.size(); ++i) found_[i] = flags_[i] != 0;
+  return status;
 }
 const std::vector<int>& StopTokenDetector::GetStepsBeforeStopTokens() const { return discard_; }
 absl::StatusOr<bool> StopTokenDetector::AllDone() const {

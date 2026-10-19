@@ -40,3 +40,9 @@ all production headers and build graphs remain unchanged. Future integration
 must validate class-layout propagation to every consumer and the flattened final
 archive linkage, not merely link the standalone contract executable. See README
 for ownership, pointer, panic and exception contracts and reproduction commands.
+
+The process-plus-snapshot experiment retains eager reference observability and
+supports getter-input aliasing by ending all input borrows before export writes.
+Its measured boundary still loses to native C++ in all six modes. Stop tuning
+this tiny component for now; next profile greedy selection at realistic
+vocabulary sizes while retaining exact NaN/tie semantics and allocation costs.

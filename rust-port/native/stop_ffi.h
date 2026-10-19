@@ -28,6 +28,11 @@ int32_t rt_rs_stop_reset(RtRsStopDetector*, size_t);
 int32_t rt_rs_stop_mark(RtRsStopDetector*, int32_t);
 int32_t rt_rs_stop_process(RtRsStopDetector*, const int32_t*, size_t);
 int32_t rt_rs_stop_process_rows(RtRsStopDetector*, const int32_t* const*, const size_t*, size_t);
+// Fused operations allow inputs to overlap outputs: all input reads finish
+// before any output writes. Output arrays remain mutually disjoint and must not
+// overlap the handle or its owned storage. No input pointers are retained.
+int32_t rt_rs_stop_process_snapshot(RtRsStopDetector*, const int32_t*, size_t, uint8_t*, int32_t*, int32_t*, uint8_t*);
+int32_t rt_rs_stop_rows_snapshot(RtRsStopDetector*, const int32_t* const*, const size_t*, size_t, uint8_t*, int32_t*, int32_t*, uint8_t*);
 int32_t rt_rs_stop_snapshot(RtRsStopDetector*, uint8_t*, int32_t*, int32_t*, uint8_t*, size_t);
 #ifdef __cplusplus
 }

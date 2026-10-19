@@ -1,0 +1,301 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "compatibility_baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+  "candidate": "native_rust",
+  "litert_headers": "3e49a3789864362f6069e0568435b584a38cf917",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "absl": "20250512",
+  "trace_count": 713,
+  "operations": 86492,
+  "trace_sha256": "0a02fb4fbd482a2a3cf499c5faebab87b77d535178a169a56277d91d8eeed458",
+  "rust_source_sha256": {
+    "src/lib.rs": "d4f5bf15b0ce3a83b4a0025fe8de69b02da2581652baf6c9ac768fa2c7c9fb93",
+    "src/bin/stop_trace.rs": "611e520153664fd90b205b5b690dbf754d04511a6226cfe328a5e7a992e5b927",
+    "ffi/src/lib.rs": "eb49b16ce4d394304d4e45cab148fd3410b3a766dc05a4fe8ea4992ad1d486da",
+    "native/stop_token_detector_rust.cc": "5fe00ba63de1b819057d954391a96a170a7d44a0ba02035719dfe02d8d98abae",
+    "native/stop_token_detector_rust.h": "f4df0e497942361267323137d64baaa65ba79d9ffa005be94cd9860eb076fa9d",
+    "native/stop_ffi.h": "6bca0f0b61974006398e594c737185ffd94fc91e4dce7828dbe81e94531ae830"
+  },
+  "timing_status": "Provisional shared-cloud-host microbenchmarks; known project heavy jobs paused. No affinity, thermal, frequency or external-host-load control. No inference measurements.",
+  "benchmarks": {
+    "no-match": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          32.71678515625,
+          33.86623125,
+          32.7243671875,
+          31.541775,
+          44.38034921875,
+          45.014084375,
+          30.586728125
+        ],
+        "native_rust": [
+          52.77543046875,
+          57.23676640625,
+          49.445625,
+          60.62418984375,
+          50.91765234375,
+          56.12395390625,
+          48.7216359375
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 32.7243671875,
+        "native_rust": 52.77543046875
+      },
+      "checksum": 0,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "partial": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          57.37065546875,
+          66.0160859375,
+          88.65018671875,
+          59.72745859375,
+          63.92104609375,
+          68.92745546875,
+          62.63006328125
+        ],
+        "native_rust": [
+          75.3313,
+          84.7447109375,
+          73.00878046875,
+          78.937175,
+          72.46845859375,
+          86.55161796875,
+          76.41891484375
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 63.92104609375,
+        "native_rust": 76.41891484375
+      },
+      "checksum": 1280000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "early-stop": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          43.0860515625,
+          56.91378984375,
+          57.68994453125,
+          49.55413828125,
+          45.2975921875,
+          58.57955703125,
+          46.6380078125
+        ],
+        "native_rust": [
+          58.92259921875,
+          62.3446984375,
+          60.69253515625,
+          56.22554453125,
+          55.85885390625,
+          59.920475,
+          60.32040859375
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 49.55413828125,
+        "native_rust": 59.920475
+      },
+      "checksum": 142420000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-no-match": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          49.6427375,
+          43.97248203125,
+          50.30420703125,
+          49.999253125,
+          48.11093203125,
+          48.172834375,
+          47.16040078125
+        ],
+        "native_rust": [
+          66.67103984375,
+          63.27179296875,
+          59.5692171875,
+          62.32951171875,
+          63.25113984375,
+          61.74653359375,
+          65.45500078125
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 48.172834375,
+        "native_rust": 63.25113984375
+      },
+      "checksum": 0,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-partial": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          86.5568421875,
+          70.97805703125,
+          67.32973515625,
+          70.92050078125,
+          66.64602890625,
+          73.75878125,
+          75.49320859375
+        ],
+        "native_rust": [
+          77.53214765625,
+          82.52031953125,
+          83.620115625,
+          85.755384375,
+          87.2789734375,
+          85.02937265625,
+          78.08176015625
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 70.97805703125,
+        "native_rust": 83.620115625
+      },
+      "checksum": 1280000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    },
+    "nested-early-stop": {
+      "ns_per_batch_step_samples": {
+        "cpp": [
+          42.59149140625,
+          44.0450765625,
+          39.2703015625,
+          43.76152578125,
+          39.23819375,
+          57.06077578125,
+          51.768440625
+        ],
+        "native_rust": [
+          52.496946875,
+          50.88355859375,
+          57.40632890625,
+          55.14470234375,
+          60.32000859375,
+          57.87218984375,
+          59.04087109375
+        ]
+      },
+      "ns_per_batch_step_median": {
+        "cpp": 43.76152578125,
+        "native_rust": 57.40632890625
+      },
+      "checksum": 142420000,
+      "batch_size": 4,
+      "sequences": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          4,
+          4,
+          5
+        ],
+        [
+          99
+        ]
+      ],
+      "rounds": 20000,
+      "steps_per_round": 64
+    }
+  },
+  "measurement_utc": "2026-10-19T20:38:48.911338+00:00",
+  "binary_sha256": {
+    "reference": "ab49d3cee32a542e2453e7410a492d266c89fc2f0410ff4784b2655ed5cc7540",
+    "native-rust-reference": "ebcce67dab73e629be0c9fd912258772fdb2682cc16b9c9c91340693e20150e3"
+  },
+  "worktree_base": "e546bceb1239f5375b1fde542cb3eade2f947747",
+  "measurement_method": "Already-built fused adapter, nine alternating-order repetitions; first two excluded, 20000 rounds x 64 steps, batch4. Input/output alias-contract documentation and tests were corrected after compilation, without changing release executable logic."
+}

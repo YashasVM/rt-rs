@@ -185,6 +185,23 @@ pub unsafe extern "C" fn rt_rs_stop_mark(handle: *mut DetectorHandle, token: i32
     }
 }
 
+// SAFETY: forwards the public ABI buffer contract; h is live/exclusive.
+unsafe fn process_impl(h: &mut DetectorHandle, tokens: *const i32, length: usize) -> i32 {
+    // SAFETY: caller supplies readable/writable disjoint live buffers.
+    unsafe {
+        if length != h.scratch.len() {
+            return INVALID;
+        }
+        let tokens = match input(tokens, length) {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        h.detector
+            .process_tokens(tokens)
+            .map_or_else(error_code, |_| OK)
+    }
+}
+
 /// # Safety
 /// Handle is live and exclusive. Tokens are readable for length elements and
 /// do not overlap the handle or its internal storage. Invalid sizes do not mutate.
@@ -195,19 +212,41 @@ pub unsafe extern "C" fn rt_rs_stop_process(
     length: usize,
 ) -> i32 {
     // SAFETY: caller supplies live handle and readable nonaliasing token storage.
+    unsafe { guard(handle, |h| process_impl(h, tokens, length)) }
+}
+
+// SAFETY: forwards the public ABI buffer contract; h is live/exclusive.
+unsafe fn rows_impl(
+    h: &mut DetectorHandle,
+    rows: *const *const i32,
+    lengths: *const usize,
+    count: usize,
+) -> i32 {
+    // SAFETY: caller supplies readable/writable disjoint live buffers.
     unsafe {
-        guard(handle, |h| {
-            if length != h.scratch.len() {
-                return INVALID;
-            }
-            let tokens = match input(tokens, length) {
-                Ok(v) => v,
-                Err(e) => return e,
-            };
-            h.detector
-                .process_tokens(tokens)
-                .map_or_else(error_code, |_| OK)
-        })
+        if count != h.scratch.len() {
+            return INVALID;
+        }
+        let lengths = match input(lengths, count) {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        if lengths.iter().any(|&n| n != 1) {
+            return INTERNAL;
+        }
+        let rows = match input(rows, count) {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+        if rows.iter().any(|&p| !valid_buffer(p, 1)) {
+            return INVALID;
+        }
+        for (slot, &row) in h.scratch.iter_mut().zip(rows) {
+            *slot = *row;
+        }
+        h.detector
+            .process_tokens(&h.scratch)
+            .map_or_else(error_code, |_| OK)
     }
 }
 
@@ -223,32 +262,51 @@ pub unsafe extern "C" fn rt_rs_stop_process_rows(
     count: usize,
 ) -> i32 {
     // SAFETY: caller supplies the documented live metadata/token buffers.
+    unsafe { guard(handle, |h| rows_impl(h, rows, lengths, count)) }
+}
+
+// SAFETY: forwards the public ABI buffer contract; h is live/exclusive.
+unsafe fn snapshot_impl(
+    h: &mut DetectorHandle,
+    found: *mut u8,
+    discard: *mut i32,
+    partial: *mut i32,
+    rollback: *mut u8,
+    count: usize,
+) -> i32 {
+    // SAFETY: caller supplies readable/writable disjoint live buffers.
     unsafe {
-        guard(handle, |h| {
-            if count != h.scratch.len() {
-                return INVALID;
-            }
-            let lengths = match input(lengths, count) {
-                Ok(v) => v,
-                Err(e) => return e,
-            };
-            if lengths.iter().any(|&n| n != 1) {
+        if count != h.scratch.len()
+            || !valid_buffer(found, count)
+            || !valid_buffer(discard, count)
+            || !valid_buffer(partial, count)
+            || !valid_buffer(rollback, count)
+        {
+            return INVALID;
+        }
+        for i in 0..count {
+            if h.detector.steps_before_stop_tokens()[i] > i32::MAX as usize
+                || h.detector.max_partial_stop_token_length(i).unwrap() > i32::MAX as usize
+            {
+                h.poisoned = true;
                 return INTERNAL;
             }
-            let rows = match input(rows, count) {
-                Ok(v) => v,
-                Err(e) => return e,
-            };
-            if rows.iter().any(|&p| !valid_buffer(p, 1)) {
-                return INVALID;
-            }
-            for (slot, &row) in h.scratch.iter_mut().zip(rows) {
-                *slot = *row;
-            }
-            h.detector
-                .process_tokens(&h.scratch)
-                .map_or_else(error_code, |_| OK)
-        })
+        }
+        for i in 0..count {
+            found
+                .add(i)
+                .write(u8::from(h.detector.stop_tokens_found()[i]));
+            discard
+                .add(i)
+                .write(h.detector.steps_before_stop_tokens()[i] as i32);
+            partial
+                .add(i)
+                .write(h.detector.max_partial_stop_token_length(i).unwrap() as i32);
+            rollback
+                .add(i)
+                .write(u8::from(h.detector.ends_with_rollback_token(i).unwrap()));
+        }
+        OK
     }
 }
 
@@ -269,37 +327,82 @@ pub unsafe extern "C" fn rt_rs_stop_snapshot(
     // SAFETY: caller owns disjoint writable output arrays and the live handle.
     unsafe {
         guard(handle, |h| {
-            if count != h.scratch.len()
-                || !valid_buffer(found, count)
-                || !valid_buffer(discard, count)
-                || !valid_buffer(partial, count)
-                || !valid_buffer(rollback, count)
+            snapshot_impl(h, found, discard, partial, rollback, count)
+        })
+    }
+}
+
+fn valid_outputs(
+    found: *mut u8,
+    discard: *mut i32,
+    partial: *mut i32,
+    rollback: *mut u8,
+    count: usize,
+) -> bool {
+    valid_buffer(found, count)
+        && valid_buffer(discard, count)
+        && valid_buffer(partial, count)
+        && valid_buffer(rollback, count)
+}
+
+/// # Safety
+/// Same live/exclusive handle and input/output buffer contracts as process and
+/// snapshot combined. Inputs may overlap outputs: all input borrows end when
+/// process_impl returns, before snapshot_impl creates any writes.
+/// Invalid metadata does not mutate detector state or write outputs.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_process_snapshot(
+    handle: *mut DetectorHandle,
+    tokens: *const i32,
+    count: usize,
+    found: *mut u8,
+    discard: *mut i32,
+    partial: *mut i32,
+    rollback: *mut u8,
+) -> i32 {
+    // SAFETY: caller upholds both processing and snapshot pointer contracts.
+    unsafe {
+        guard(handle, |h| {
+            if count != h.scratch.len() || !valid_outputs(found, discard, partial, rollback, count)
             {
                 return INVALID;
             }
-            for i in 0..count {
-                if h.detector.steps_before_stop_tokens()[i] > i32::MAX as usize
-                    || h.detector.max_partial_stop_token_length(i).unwrap() > i32::MAX as usize
-                {
-                    h.poisoned = true;
-                    return INTERNAL;
-                }
+            let status = process_impl(h, tokens, count);
+            if status != OK {
+                return status;
             }
-            for i in 0..count {
-                found
-                    .add(i)
-                    .write(u8::from(h.detector.stop_tokens_found()[i]));
-                discard
-                    .add(i)
-                    .write(h.detector.steps_before_stop_tokens()[i] as i32);
-                partial
-                    .add(i)
-                    .write(h.detector.max_partial_stop_token_length(i).unwrap() as i32);
-                rollback
-                    .add(i)
-                    .write(u8::from(h.detector.ends_with_rollback_token(i).unwrap()));
+            snapshot_impl(h, found, discard, partial, rollback, count)
+        })
+    }
+}
+
+/// # Safety
+/// Same contracts as process_rows and snapshot combined. Inputs may overlap
+/// outputs: rows_impl finishes all metadata/token reads and drops their borrows
+/// before snapshot_impl writes. Invalid metadata is atomic.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_stop_rows_snapshot(
+    handle: *mut DetectorHandle,
+    rows: *const *const i32,
+    lengths: *const usize,
+    count: usize,
+    found: *mut u8,
+    discard: *mut i32,
+    partial: *mut i32,
+    rollback: *mut u8,
+) -> i32 {
+    // SAFETY: caller upholds both processing and snapshot pointer contracts.
+    unsafe {
+        guard(handle, |h| {
+            if count != h.scratch.len() || !valid_outputs(found, discard, partial, rollback, count)
+            {
+                return INVALID;
             }
-            OK
+            let status = rows_impl(h, rows, lengths, count);
+            if status != OK {
+                return status;
+            }
+            snapshot_impl(h, found, discard, partial, rollback, count)
         })
     }
 }
@@ -307,6 +410,139 @@ pub unsafe extern "C" fn rt_rs_stop_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fused_metadata_errors_are_atomic_and_success_matches_split_calls() {
+        // SAFETY: handles uniquely owned; all readable/writable arrays live and
+        // disjoint. Null metadata is rejected before processing or writing.
+        unsafe {
+            let h = rt_rs_stop_create(2);
+            assert_eq!(rt_rs_stop_add(h, [7].as_ptr(), 1), OK);
+            let split = rt_rs_stop_clone(h);
+            let mut found = [99u8; 2];
+            let mut discard = [99i32; 2];
+            let mut partial = [99i32; 2];
+            let mut rollback = [99u8; 2];
+            let tokens = [7, 0];
+            assert_eq!(
+                rt_rs_stop_process_snapshot(
+                    h,
+                    tokens.as_ptr(),
+                    2,
+                    found.as_mut_ptr(),
+                    ptr::null_mut(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                INVALID
+            );
+            assert_eq!((*h).detector.stop_tokens_found(), &[false, false]);
+            assert_eq!(found, [99; 2]);
+            let rows = [tokens.as_ptr(), tokens.as_ptr().add(1)];
+            assert_eq!(
+                rt_rs_stop_rows_snapshot(
+                    h,
+                    rows.as_ptr(),
+                    [1, 0].as_ptr(),
+                    2,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                INTERNAL
+            );
+            assert_eq!((*h).detector.stop_tokens_found(), &[false, false]);
+            assert_eq!(discard, [99; 2]);
+            assert_eq!(
+                rt_rs_stop_rows_snapshot(
+                    h,
+                    rows.as_ptr(),
+                    [1, 1].as_ptr(),
+                    2,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                OK
+            );
+            assert_eq!(rt_rs_stop_process(split, tokens.as_ptr(), 2), OK);
+            assert_eq!(
+                (*h).detector.stop_tokens_found(),
+                (*split).detector.stop_tokens_found()
+            );
+            assert_eq!(found, [1, 0]);
+            assert_eq!(discard, [1, 0]);
+            assert_eq!(
+                rt_rs_stop_process_snapshot(
+                    h,
+                    tokens.as_ptr(),
+                    2,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                OK
+            );
+            assert_eq!(rt_rs_stop_process(split, tokens.as_ptr(), 2), OK);
+            assert_eq!(
+                (*h).detector.steps_before_stop_tokens(),
+                (*split).detector.steps_before_stop_tokens()
+            );
+            assert_eq!(discard, [2, 0]);
+            rt_rs_stop_destroy(h);
+            rt_rs_stop_destroy(split);
+        }
+    }
+
+    #[test]
+    fn fused_inputs_may_overlap_outputs_after_input_borrows_end() {
+        // SAFETY: input and discard intentionally share live storage; fused
+        // processing ends its input borrows before any snapshot writes occur.
+        unsafe {
+            let h = rt_rs_stop_create(1);
+            assert_eq!(rt_rs_stop_add(h, [7].as_ptr(), 1), OK);
+            let mut discard = [7i32];
+            let mut found = [0u8];
+            let mut partial = [0i32];
+            let mut rollback = [0u8];
+            assert_eq!(
+                rt_rs_stop_process_snapshot(
+                    h,
+                    discard.as_ptr(),
+                    1,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                OK
+            );
+            assert_eq!(discard, [1]);
+            assert_eq!(found, [1]);
+            assert_eq!(rt_rs_stop_reset(h, 0), OK);
+            discard[0] = 7;
+            let rows = [discard.as_ptr()];
+            assert_eq!(
+                rt_rs_stop_rows_snapshot(
+                    h,
+                    rows.as_ptr(),
+                    [1].as_ptr(),
+                    1,
+                    found.as_mut_ptr(),
+                    discard.as_mut_ptr(),
+                    partial.as_mut_ptr(),
+                    rollback.as_mut_ptr()
+                ),
+                OK
+            );
+            assert_eq!(discard, [1]);
+            assert_eq!(found, [1]);
+            rt_rs_stop_destroy(h);
+        }
+    }
+
     #[test]
     fn invalid_metadata_and_clone_are_safe() {
         assert!(rt_rs_stop_create(0).is_null());

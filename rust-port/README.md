@@ -262,7 +262,7 @@ per-step allocations after sizing but is not a zero-copy interface. These costs
 must be measured rather than assumed faster. A cloud native contract run also passes AddressSanitizer/UndefinedBehaviorSanitizer
 on the C++ adapter and harness; the Rust archive and Abseil are uninstrumented
 and leak detection was disabled. This is not whole-program sanitizer coverage.
-Rust-only CI includes the four ABI
+Rust-only CI includes the six ABI
 unit tests, not native C++ parity, sanitizer or full-engine integration tests.
 
 The first measured adapter boundary is slower, not faster. Against pinned main,
@@ -274,6 +274,16 @@ this short run, but CPU frequency, affinity and external host load were not
 controlled. These component results reject assuming that pure-Rust helper gains
 survive a fine-grained C++ boundary. Reduce/coarsen copying and snapshot work
 before considering a real backend switch; never infer overall runtime speed.
+
+A bounded follow-up fuses processing and snapshot export under one Rust handle
+borrow and panic guard. It keeps eager C++ mirrors, including references obtained
+before processing; inputs may alias output storage because all input borrows end
+before snapshot writes. Regression tests cover using a getter as input and
+invalid fused metadata without state/output changes. The fused variant is still
+slower than C++ by 61.3% / 19.6% / 20.9% (flat) and 31.3% / 17.8% / 31.2%
+(nested) in its run; see `benchmarks/cloud-native-fused-stop-main.json`. Different
+runs are not controlled A/B evidence of a fusion speedup. Further tiny-detector
+tuning is deferred in favor of realistic-vocabulary sampling profiling.
 
 Actual engine integration still requires a single consistent class layout for
 all consumers (including serial/threaded execution managers), inclusion of the
