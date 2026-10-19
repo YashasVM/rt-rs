@@ -467,9 +467,11 @@ at `d50e3bf`. Evidence is retained in `benchmarks/hosted-sampler-integration.jso
 These are functional tests, not timing or invocation-count instrumentation.
 The next bounded job builds the opt-in real engine CLI and checks its static
 linkage/help startup. Its first run reached final link but failed on an
-unmaterialized upstream Git LFS shared library; original-object retrieval is
-being repaired and final linkage remains pending. No model or Android run has
-been validated. See `SAMPLER_INTEGRATION.md` for evidence and
+unmaterialized upstream Git LFS shared library. After retrieving the original
+hash-verified object, [run 39339048193](https://github.com/YashasVM/rt-rs/actions/runs/39339048193)
+passed final engine linkage, Rust symbol/static-LiteRT checks, and bounded help
+startup at `58f83cce`. This proves executable linkage/startup, not invocation of
+the sampling path or inference. No model or Android run has been validated. See `SAMPLER_INTEGRATION.md` for evidence and
 [DEVICE_VALIDATION.md](DEVICE_VALIDATION.md) for the future paired protocol.
 
 ## Next integration gate

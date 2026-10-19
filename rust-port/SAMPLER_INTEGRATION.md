@@ -113,9 +113,14 @@ execution or speed. The first run (39335660149, d342766) reached final link
 but failed because the upstream constraint-provider shared library was still
 a Git LFS pointer. It used 7.6 GB output and 1466.526s Bazel time, without
 resource exhaustion. Symbol/help checks were correctly skipped. The repair
-materializes the original SHA-256/size-verified upstream object; final linkage
-remains unproved until that retry passes. See
-`benchmarks/hosted-engine-lfs-failure.json`. Android, CMake and actual
+materialized the original SHA-256/size-verified upstream object. Retry
+39339048193 at 58f83cce passed all final linkage and bounded help gates: 4971
+actions, 1469.080s, 7.6 GB output, 30,598,032-byte executable. The expected Rust
+symbol is defined, no dynamic libLiteRt.so dependency exists, and help exited
+expected status 1 in 0s with required flags. The original constraint-provider
+shared library remains a real dynamic dependency. See
+`benchmarks/hosted-engine-lfs-failure.json` and `benchmarks/hosted-engine-link.json`.
+No model was loaded or sampling invocation established by help. Android, CMake and actual
 model/device performance remain separate gates. See the future
 [device validation protocol](DEVICE_VALIDATION.md) for paired correctness,
 actual path invocation and end-to-end measurements.

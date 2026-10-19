@@ -6,9 +6,10 @@ This is a future experiment, not a device result or a deployment instruction.
 The native default is unchanged. The option replaces only eligible FP16 CPU
 sampling, not the LiteRT executor or the whole runtime. The real TensorBuffer
 sampler tests passed 19/19 with the option OFF and ON in hosted Linux run
-39332219521. The separate final CPU engine run 39335660149 failed at link because an
-upstream shared library was still a Git LFS pointer; its checked-object repair
-and final link/help retry are pending. Even a successful help smoke is not inference.
+39332219521. The separate final CPU engine run 39335660149 failed at link
+because an upstream shared library was still a Git LFS pointer; its checked-object
+repair passed final link and bounded help in run 39339048193 at 58f83cce.
+A successful help smoke is not inference.
 See [integration evidence and boundaries](SAMPLER_INTEGRATION.md).
 
 Evidence currently covers Bazel/Linux only. CMake, Android artifacts, final
@@ -63,7 +64,8 @@ CC=clang CXX=clang++ bazelisk build \
   //runtime/engine:litert_lm_main
 ```
 
-This reproduces a build request, not a claim that the engine gate passed.
+The opt-in Linux engine gate passed at 58f83cce. A matched OFF engine build
+and actual model/device execution remain to be validated.
 Repeat the real sampler tests with both modes and retain failures as well as
 successes. Inspect final symbols/dependencies and loader startup. The Rust FP16
 entry point must be present only in the enabled build. Symbol presence alone

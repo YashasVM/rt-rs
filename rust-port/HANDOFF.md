@@ -106,3 +106,13 @@ link error. Preserve the failure evidence and retrieve only the original pinned,
 hash/size-verified upstream binary before rerunning the unchanged engine gates.
 No final linkage/help/inference result is yet established. Future phone/model
 validation is specified in DEVICE_VALIDATION.md, not performed by that document.
+
+## Final Linux engine checkpoint
+
+Pinned original-object materialization fixed the LFS failure. Run 39339048193
+at 58f83cce passed genuine CPU-only opt-in engine linkage, Rust symbol presence,
+static-LiteRT dependency check and bounded help startup. Build: 4971 actions,
+1469.080s, 7.6 GB output; executable 30,598,032 bytes. No link suppression or
+consumer removal. Same-head Rust checks passed. This is not model inference,
+sampling invocation-count, Android or speed evidence. Next use the documented
+paired device/model protocol once the relevant artifacts/access are approved.
