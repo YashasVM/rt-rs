@@ -258,6 +258,41 @@ vocabulary scan: allocation removal alone is not established as the primary
 bottleneck. Next test whether the measured reduction advantage survives a real
 native boundary before broadening or selecting a Rust backend.
 
+### Stateless greedy boundary experiment
+
+The same benchmark now includes `native_rust_reduction`: a distinct C++
+`rt_rs_experiment::GreedyTokenIds` wrapper calling the safe reduction through
+`rt_rs_greedy_token_ids`. It borrows immutable logits synchronously, validates
+shape/index ranges and buffer metadata before writes, and retains no pointers.
+The Rust reduction allocates nothing; the measured C++ wrapper deliberately
+includes a flat export buffer and copy into its owned nested result. Inputs and
+outputs must be disjoint, live and aligned; no concurrent mutation of inputs or
+concurrent access to the output is permitted. Unexpected panics are caught, but
+output rollback on an unexpected mid-write panic is not promised.
+
+Including the native boundary, the periodic profile still showed a 1.15–3.12x
+median advantage over GCC native reduction (`cloud-native-greedy-profile.json`).
+Separate seeded-random, ascending and descending profiles cover another 36
+shape/distribution combinations. Median ratios were 1.055–3.31x, 1.30–1.46x,
+and 1.11–3.51x respectively, with matching index checksums. The weakest 5–11%
+advantages are particularly vulnerable to shared-host noise. Do not summarize
+this as a universal threefold gain. All raw samples are in the corresponding
+`benchmarks/cloud-native-greedy-{random,ascending,descending}.json` files.
+
+Reproduce a sensitivity run after building with `--pattern random`,
+`--pattern ascending`, or `--pattern descending` on the benchmark script.
+Compiler, CPU, synthetic-logit and lack-of-inference limitations still apply.
+
+This remains a standalone experiment with no original sampling target/default
+change. The 11,481-case suite checks both the safe Rust executable and this
+native boundary against unchanged pinned C++ including NaNs, infinities, ties,
+empty vocabulary and tiled reductions. Native contract tests also check invalid
+shapes and output ownership. Run it directly with:
+
+```sh
+RT_RS_CURRENT_MAIN=1 RT_RS_GREEDY_FFI=1 python3 rust-port/verify_greedy.py
+```
+
 ## Standalone native-adapter experiment
 
 `ffi/` isolates the unsafe C ABI from the safe core. `native/` implements a
@@ -295,7 +330,7 @@ per-step allocations after sizing but is not a zero-copy interface. These costs
 must be measured rather than assumed faster. A cloud native contract run also passes AddressSanitizer/UndefinedBehaviorSanitizer
 on the C++ adapter and harness; the Rust archive and Abseil are uninstrumented
 and leak detection was disabled. This is not whole-program sanitizer coverage.
-Rust-only CI includes the six ABI
+Rust-only CI includes the seven ABI
 unit tests, not native C++ parity, sanitizer or full-engine integration tests.
 
 The first measured adapter boundary is slower, not faster. Against pinned main,

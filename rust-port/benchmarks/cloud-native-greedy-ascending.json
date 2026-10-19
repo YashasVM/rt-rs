@@ -1,0 +1,706 @@
+{
+  "baseline": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+  "source_sha256": {
+    "src/greedy.rs": "4dd1ebb48669cb514a6be4bfc5f5586865e03d165653d9f3888429701385de8a",
+    "src/bin/greedy_trace.rs": "d02e08fcbeb81ffc7d0c4979bf55668519f6c22b400ad6063b5a8e4536c5bfe2",
+    "tests/greedy_reference.cc": "1bf99c24e91fb68bfbf9d49bc6c1a2f5e11f3188003ae03a5d316d02fdd7016c",
+    "benchmark_greedy.py": "f033a08b627aec43327ea857313f097641c948817dba5273198c23c31b1210bf",
+    "ffi/src/lib.rs": "a5532cb4600f43262a1916f471e9a0cb4e76b3da8eef1d2513fc1db6193d04fd",
+    "native/greedy_rust.h": "6e3c6c612452fc80edbe7fd520db319602265b434cf8ec338a0b6424c7fb6abd",
+    "native/greedy_rust.cc": "bf5418bcea2e049a05a8cf012d7a1bd7c4d4af938f170fcdeb686c52875f2550",
+    "native/stop_ffi.h": "eff6cb79f04cbff7c63a7ad6fd343e90c3429d6991908dc0cf05cc613048d20b"
+  },
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cxx": "c++ (Debian 14.2.0-19) 14.2.0",
+  "binary_sha256": {
+    "target/greedy-reference": "93dc324361c03c50216a8f1292218fb4c38394abdfa205473f4c8a5c52e15929",
+    "target/greedy-allocations": "60b71d3782e528af28ada6ed7f13d6d0b4f4bb37af08c33107786f6694d3ad23",
+    "target/release/greedy-trace": "aa60a15eaf0cbb409e773772145e2797a52d7b4a7721cf1472a1a38c3b5a949e",
+    "target/native-greedy-reference": "b22bff5ee01284d5b3e92b5a24c03748be620119197969622a1971d5f7066fe2"
+  },
+  "measurement_utc": "2026-10-19T20:54:04.907336+00:00",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "input_pattern": "ascending",
+  "scope": "Finite deterministic logits; full native k=1 sampling versus native/Rust reduction. Not equivalent complete output APIs; native-to-Rust standalone wrapper included, not model inference or production integration.",
+  "timing_status": "Provisional shared-cloud-host timings; known project heavy jobs paused. No affinity, thermal, frequency or external-host-load control. GCC14 versus Rust LLVM; no matched compiler, Android or inference result.",
+  "samples": [
+    {
+      "vocab": 32768,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 244,
+      "checksum": 7995148,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          22918.20901639344,
+          21245.14344262295,
+          23610.774590163935,
+          22622.844262295082,
+          22671.688524590165
+        ],
+        "cpp_sampling": [
+          22391.631147540982,
+          23539.72131147541,
+          21966.360655737706,
+          22603.631147540982,
+          23246.02868852459
+        ],
+        "rust_reduction": [
+          16371.209016393443,
+          15127.442622950819,
+          18338.983606557376,
+          15620.852459016394,
+          19986.024590163935
+        ],
+        "native_rust_reduction": [
+          17583.967213114753,
+          19570.811475409835,
+          15885.393442622952,
+          17414.09836065574,
+          14704.139344262296
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 22671.688524590165,
+        "cpp_sampling": 22603.631147540982,
+        "rust_reduction": 16371.209016393443,
+        "native_rust_reduction": 17414.09836065574
+      }
+    },
+    {
+      "vocab": 32768,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 61,
+      "checksum": 7995148,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          22347.905737704918,
+          23136.27049180328,
+          23044.94262295082,
+          25648.266393442624,
+          22453.475409836065
+        ],
+        "cpp_sampling": [
+          20131.110655737706,
+          22923.159836065573,
+          24717.27049180328,
+          23357.918032786885,
+          26496.844262295082
+        ],
+        "rust_reduction": [
+          20792.52049180328,
+          17511.487704918032,
+          19207.581967213115,
+          14731.590163934427,
+          17184.233606557376
+        ],
+        "native_rust_reduction": [
+          17593.20901639344,
+          16923.676229508197,
+          15934.102459016394,
+          19280.975409836065,
+          20522.110655737706
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 23044.94262295082,
+        "cpp_sampling": 23357.918032786885,
+        "rust_reduction": 17511.487704918032,
+        "native_rust_reduction": 17593.20901639344
+      }
+    },
+    {
+      "vocab": 32768,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 30,
+      "checksum": 7864080,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          24604.1625,
+          22139.279166666667,
+          24287.866666666665,
+          23707.154166666667,
+          27905.8
+        ],
+        "cpp_sampling": [
+          21383.058333333334,
+          29862.633333333335,
+          22748.7875,
+          21418.208333333332,
+          25264.091666666667
+        ],
+        "rust_reduction": [
+          17346.779166666667,
+          15622.175,
+          17579.341666666667,
+          16943.8375,
+          19447.379166666666
+        ],
+        "native_rust_reduction": [
+          15417.658333333333,
+          17780.4625,
+          17603.379166666666,
+          14981.875,
+          17205.233333333334
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 24287.866666666665,
+        "cpp_sampling": 22748.7875,
+        "rust_reduction": 17346.779166666667,
+        "native_rust_reduction": 17205.233333333334
+      }
+    },
+    {
+      "vocab": 32768,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 7,
+      "checksum": 7339808,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          25707.17410714286,
+          21984.73214285714,
+          23916.76339285714,
+          22272.26339285714,
+          22527.20535714286
+        ],
+        "cpp_sampling": [
+          21187.67410714286,
+          22305.214285714286,
+          22665.45089285714,
+          26340.473214285714,
+          24006.9375
+        ],
+        "rust_reduction": [
+          16513.95535714286,
+          16314.861607142857,
+          16549.54464285714,
+          25345.620535714286,
+          19693.897321428572
+        ],
+        "native_rust_reduction": [
+          17793.348214285714,
+          14947.075892857143,
+          16130.964285714286,
+          20221.571428571428,
+          16873.558035714286
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 22527.20535714286,
+        "cpp_sampling": 22665.45089285714,
+        "rust_reduction": 16549.54464285714,
+        "native_rust_reduction": 16873.558035714286
+      }
+    },
+    {
+      "vocab": 131072,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 61,
+      "checksum": 7995331,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          94855.95081967213,
+          99462.26229508196,
+          93236.44262295082,
+          88881.34426229508,
+          91868.65573770492
+        ],
+        "cpp_sampling": [
+          116215.55737704918,
+          91416.4918032787,
+          87758.16393442624,
+          86409.24590163934,
+          116059.18032786885
+        ],
+        "rust_reduction": [
+          61092.24590163935,
+          66710.59016393442,
+          60816.75409836065,
+          68721.01639344262,
+          78580.01639344262
+        ],
+        "native_rust_reduction": [
+          68693.09836065574,
+          70914.32786885246,
+          62472.54098360656,
+          78246.0655737705,
+          85541.70491803279
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 93236.44262295082,
+        "cpp_sampling": 91416.4918032787,
+        "rust_reduction": 66710.59016393442,
+        "native_rust_reduction": 70914.32786885246
+      }
+    },
+    {
+      "vocab": 131072,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 15,
+      "checksum": 7864260,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          114873.45,
+          88310.08333333333,
+          86672.78333333334,
+          80334.03333333334,
+          95640.68333333333
+        ],
+        "cpp_sampling": [
+          93541.75,
+          95108.53333333334,
+          97060.66666666667,
+          100694.48333333334,
+          98534.9
+        ],
+        "rust_reduction": [
+          66351.88333333333,
+          77984.8,
+          62215.11666666667,
+          68009.88333333333,
+          83497.65
+        ],
+        "native_rust_reduction": [
+          63304.433333333334,
+          63809.35,
+          72844.03333333334,
+          75361.83333333333,
+          61149.333333333336
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 88310.08333333333,
+        "cpp_sampling": 97060.66666666667,
+        "rust_reduction": 68009.88333333333,
+        "native_rust_reduction": 63809.35
+      }
+    },
+    {
+      "vocab": 131072,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 7,
+      "checksum": 7339976,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          91855.75,
+          89618.78571428571,
+          113171.57142857143,
+          93371.98214285714,
+          81720.94642857143
+        ],
+        "cpp_sampling": [
+          94903.375,
+          103933.66071428571,
+          94139.55357142857,
+          96020.78571428571,
+          90564.67857142857
+        ],
+        "rust_reduction": [
+          75587.92857142857,
+          75483.66071428571,
+          73778.92857142857,
+          92693.08928571429,
+          62642.267857142855
+        ],
+        "native_rust_reduction": [
+          67684.53571428571,
+          63224.732142857145,
+          68264.16071428571,
+          65291.46428571428,
+          70119.82142857143
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 91855.75,
+        "cpp_sampling": 94903.375,
+        "rust_reduction": 75483.66071428571,
+        "native_rust_reduction": 67684.53571428571
+      }
+    },
+    {
+      "vocab": 131072,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 4,
+      "checksum": 16777088,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          81628.015625,
+          86388.265625,
+          95152.0,
+          88100.390625,
+          83895.2734375
+        ],
+        "cpp_sampling": [
+          85120.953125,
+          102940.8828125,
+          83825.953125,
+          85849.875,
+          133484.984375
+        ],
+        "rust_reduction": [
+          58234.8125,
+          67921.734375,
+          58790.6640625,
+          59368.40625,
+          65374.8359375
+        ],
+        "native_rust_reduction": [
+          62285.4765625,
+          58080.6796875,
+          61599.203125,
+          59016.703125,
+          64189.7578125
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 86388.265625,
+        "cpp_sampling": 85849.875,
+        "rust_reduction": 59368.40625,
+        "native_rust_reduction": 61599.203125
+      }
+    },
+    {
+      "vocab": 262144,
+      "batch": 1,
+      "sequence": 1,
+      "rounds": 30,
+      "checksum": 7864290,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          161085.03333333333,
+          190287.16666666666,
+          159226.53333333333,
+          167855.26666666666,
+          171783.86666666667
+        ],
+        "cpp_sampling": [
+          165830.5,
+          157301.63333333333,
+          173444.06666666668,
+          161398.16666666666,
+          170756.63333333333
+        ],
+        "rust_reduction": [
+          117193.26666666666,
+          139254.33333333334,
+          136128.6,
+          122640.86666666667,
+          138454.13333333333
+        ],
+        "native_rust_reduction": [
+          131199.8,
+          127466.5,
+          141567.83333333334,
+          119108.16666666667,
+          117050.06666666667
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 167855.26666666666,
+        "cpp_sampling": 165830.5,
+        "rust_reduction": 136128.6,
+        "native_rust_reduction": 127466.5
+      }
+    },
+    {
+      "vocab": 262144,
+      "batch": 4,
+      "sequence": 1,
+      "rounds": 7,
+      "checksum": 7340004,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          186990.35714285713,
+          159031.2857142857,
+          198268.5357142857,
+          183668.92857142858,
+          201280.2142857143
+        ],
+        "cpp_sampling": [
+          155291.35714285713,
+          189381.5,
+          176745.57142857142,
+          179614.57142857142,
+          157650.64285714287
+        ],
+        "rust_reduction": [
+          114811.89285714286,
+          120975.14285714286,
+          122868.0,
+          143429.5,
+          158042.64285714287
+        ],
+        "native_rust_reduction": [
+          157575.89285714287,
+          153450.35714285713,
+          129351.39285714286,
+          123305.46428571429,
+          135600.5
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 186990.35714285713,
+        "cpp_sampling": 176745.57142857142,
+        "rust_reduction": 122868.0,
+        "native_rust_reduction": 135600.5
+      }
+    },
+    {
+      "vocab": 262144,
+      "batch": 1,
+      "sequence": 8,
+      "rounds": 4,
+      "checksum": 8388576,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          165920.6875,
+          195726.09375,
+          219459.5,
+          160241.46875,
+          156975.90625
+        ],
+        "cpp_sampling": [
+          176601.21875,
+          195014.375,
+          172549.15625,
+          199098.0625,
+          171159.875
+        ],
+        "rust_reduction": [
+          114705.71875,
+          119088.59375,
+          147958.1875,
+          114919.75,
+          116334.40625
+        ],
+        "native_rust_reduction": [
+          133280.0625,
+          137673.28125,
+          126045.0625,
+          120070.09375,
+          116381.6875
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 165920.6875,
+        "cpp_sampling": 176601.21875,
+        "rust_reduction": 116334.40625,
+        "native_rust_reduction": 126045.0625
+      }
+    },
+    {
+      "vocab": 262144,
+      "batch": 4,
+      "sequence": 8,
+      "rounds": 4,
+      "checksum": 33554304,
+      "ns_per_position_samples": {
+        "cpp_reduction": [
+          175639.765625,
+          181555.703125,
+          197032.7265625,
+          172474.2890625,
+          239292.7890625
+        ],
+        "cpp_sampling": [
+          181525.546875,
+          170729.1484375,
+          201314.3515625,
+          187073.609375,
+          196717.09375
+        ],
+        "rust_reduction": [
+          133932.609375,
+          151748.7421875,
+          163296.6640625,
+          146829.2109375,
+          165936.203125
+        ],
+        "native_rust_reduction": [
+          129886.4140625,
+          124574.0859375,
+          124191.71875,
+          123796.1953125,
+          123462.0234375
+        ]
+      },
+      "ns_per_position_median": {
+        "cpp_reduction": 181555.703125,
+        "cpp_sampling": 187073.609375,
+        "rust_reduction": 151748.7421875,
+        "native_rust_reduction": 124191.71875
+      }
+    }
+  ],
+  "allocations": [
+    {
+      "mode": "reduction",
+      "batch": 1,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 3,
+      "requested_bytes": 32,
+      "checksum": 100
+    },
+    {
+      "mode": "reduction",
+      "batch": 1,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 300,
+      "requested_bytes": 3200,
+      "checksum": 10000
+    },
+    {
+      "mode": "sampling",
+      "batch": 1,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 16,
+      "requested_bytes": 164,
+      "checksum": 100
+    },
+    {
+      "mode": "sampling",
+      "batch": 1,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 1402,
+      "requested_bytes": 13628,
+      "checksum": 10000
+    },
+    {
+      "mode": "reduction",
+      "batch": 4,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 6,
+      "requested_bytes": 116,
+      "checksum": 237
+    },
+    {
+      "mode": "reduction",
+      "batch": 4,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 600,
+      "requested_bytes": 11600,
+      "checksum": 23700
+    },
+    {
+      "mode": "sampling",
+      "batch": 4,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 31,
+      "requested_bytes": 596,
+      "checksum": 237
+    },
+    {
+      "mode": "sampling",
+      "batch": 4,
+      "sequence": 1,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 2605,
+      "requested_bytes": 48512,
+      "checksum": 23700
+    },
+    {
+      "mode": "reduction",
+      "batch": 1,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 3,
+      "requested_bytes": 88,
+      "checksum": 477
+    },
+    {
+      "mode": "reduction",
+      "batch": 1,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 300,
+      "requested_bytes": 8800,
+      "checksum": 47700
+    },
+    {
+      "mode": "sampling",
+      "batch": 1,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 16,
+      "requested_bytes": 472,
+      "checksum": 477
+    },
+    {
+      "mode": "sampling",
+      "batch": 1,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 1402,
+      "requested_bytes": 41656,
+      "checksum": 47700
+    },
+    {
+      "mode": "reduction",
+      "batch": 4,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 6,
+      "requested_bytes": 256,
+      "checksum": 1677
+    },
+    {
+      "mode": "reduction",
+      "batch": 4,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 600,
+      "requested_bytes": 25600,
+      "checksum": 167700
+    },
+    {
+      "mode": "sampling",
+      "batch": 4,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 1,
+      "new_calls": 31,
+      "requested_bytes": 1408,
+      "checksum": 1677
+    },
+    {
+      "mode": "sampling",
+      "batch": 4,
+      "sequence": 8,
+      "vocab": 32768,
+      "calls": 100,
+      "new_calls": 2605,
+      "requested_bytes": 118624,
+      "checksum": 167700
+    }
+  ]
+}

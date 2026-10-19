@@ -46,3 +46,15 @@ supports getter-input aliasing by ending all input borrows before export writes.
 Its measured boundary still loses to native C++ in all six modes. Stop tuning
 this tiny component for now; next profile greedy selection at realistic
 vocabulary sizes while retaining exact NaN/tie semantics and allocation costs.
+
+## Greedy native boundary
+
+A separate stateless greedy adapter now validates native index ranges and buffer
+metadata before exporting owned indices. It retains no pointers and does not
+select any production sampler target. Cross-language parity covers 11,481 cases.
+Read-only unsafe review found no remaining blocker after concurrency contracts
+were made explicit; native C++ sanitizer contracts pass (Rust/Abseil not
+instrumented). Periodic/random/ascending/descending profiles preserve all raw
+samples and GCC-versus-LLVM caveats. Results are component evidence, not Android
+or inference gains. Next profile native FP16 conversion plus selection before
+attempting a safe fused path that avoids whole-vocabulary float32 staging.

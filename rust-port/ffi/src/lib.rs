@@ -407,6 +407,55 @@ pub unsafe extern "C" fn rt_rs_stop_rows_snapshot(
     }
 }
 
+/// Select greedy k=1 indices into caller-owned contiguous output storage.
+///
+/// # Safety
+/// Logits are readable for length f32 elements; output is writable for count
+/// i32 elements. Both allocations are live/aligned and mutually disjoint.
+/// Logits must not be concurrently mutated; output is exclusively writable
+/// for the entire call.
+/// No pointer is retained. Null is allowed only for a zero-length input.
+/// Shape/range/pointer metadata errors leave all outputs unchanged. Panics are
+/// caught, but atomic output rollback is not promised for an unexpected panic.
+#[no_mangle]
+pub unsafe extern "C" fn rt_rs_greedy_token_ids(
+    logits: *const f32,
+    length: usize,
+    batch: usize,
+    sequence: usize,
+    output: *mut i32,
+    count: usize,
+) -> i32 {
+    let Some(positions) = batch.checked_mul(sequence) else { return INVALID; };
+    if batch == 0
+        || sequence == 0
+        || positions > i32::MAX as usize
+        || length > i32::MAX as usize
+        || count != positions
+        || length % positions != 0
+        || !valid_buffer(logits, length)
+        || !valid_buffer(output, count)
+    {
+        return INVALID;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: metadata checked above; caller guarantees live, readable
+        // logits, disjoint writable outputs, and no concurrent mutation.
+        unsafe {
+            let logits = input(logits, length).expect("validated logits metadata");
+            let vocab = length / positions;
+            for position in 0..positions {
+                let start = position * vocab;
+                let id = rt_rs_stop::greedy::greedy_token_id(&logits[start..start + vocab]);
+                // Bound follows length <= i32::MAX; empty vocab returns zero.
+                output.add(position).write(id as i32);
+            }
+        }
+        OK
+    }))
+    .unwrap_or(INTERNAL)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -540,6 +589,56 @@ mod tests {
             assert_eq!(discard, [1]);
             assert_eq!(found, [1]);
             rt_rs_stop_destroy(h);
+        }
+    }
+
+    #[test]
+    fn greedy_boundary_checks_metadata_and_preserves_reduction_semantics() {
+        // SAFETY: valid arrays live/disjoint, invalid pointer metadata rejected
+        // before any access; input contents remain immutable throughout calls.
+        unsafe {
+            let logits = [1.0, 3.0, 3.0, f32::NAN, 9.0, 1.0];
+            let mut output = [99i32; 2];
+            assert_eq!(
+                rt_rs_greedy_token_ids(logits.as_ptr(), 6, 2, 1, output.as_mut_ptr(), 2),
+                OK
+            );
+            assert_eq!(output, [1, 0]);
+            for (len, batch, seq, count) in [
+                (5, 2, 1, 2),
+                (6, 0, 1, 2),
+                (6, usize::MAX, 2, 2),
+                (usize::MAX, 1, 1, 2),
+                (6, 2, 1, 1),
+            ] {
+                output = [99; 2];
+                assert_eq!(
+                    rt_rs_greedy_token_ids(
+                        logits.as_ptr(),
+                        len,
+                        batch,
+                        seq,
+                        output.as_mut_ptr(),
+                        count
+                    ),
+                    INVALID
+                );
+                assert_eq!(output, [99; 2]);
+            }
+            assert_eq!(
+                rt_rs_greedy_token_ids(ptr::null(), 6, 2, 1, output.as_mut_ptr(), 2),
+                INVALID
+            );
+            assert_eq!(
+                rt_rs_greedy_token_ids(logits.as_ptr(), 6, 2, 1, ptr::null_mut(), 2),
+                INVALID
+            );
+            assert_eq!(output, [99; 2]);
+            assert_eq!(
+                rt_rs_greedy_token_ids(ptr::null(), 0, 2, 1, output.as_mut_ptr(), 2),
+                OK
+            );
+            assert_eq!(output, [0; 2]);
         }
     }
 

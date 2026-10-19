@@ -12,6 +12,18 @@
 #include <iostream>
 #include <vector>
 #include "runtime/components/sampling_cpu_util.h"
+#ifdef RT_RS_GREEDY_FFI
+#include "rust-port/native/greedy_rust.h"
+#endif
+
+static absl::StatusOr<std::vector<std::vector<int>>> GreedyIds(
+    absl::Span<const float> logits, int batch, int sequence) {
+#ifdef RT_RS_GREEDY_FFI
+  return rt_rs_experiment::GreedyTokenIds(logits, batch, sequence);
+#else
+  return litert::lm::TopKTokenIds(logits, 1, batch, sequence);
+#endif
+}
 
 #ifdef RT_RS_COUNT_ALLOCATIONS
 // Separate diagnostic build only; never use these instrumented timings.
@@ -28,13 +40,22 @@ void operator delete(void* p, size_t) noexcept { std::free(p); }
 #endif
 
 int main(int argc, char** argv) {
-  if (argc == 6) {
+  if (argc == 6 || argc == 7) {
     const bool sampling = std::string(argv[1]) == "sampling";
     const int batch = std::stoi(argv[2]), sequence = std::stoi(argv[3]);
     const int vocab = std::stoi(argv[4]), rounds = std::stoi(argv[5]);
     if (batch <= 0 || sequence <= 0 || vocab <= 0 || rounds <= 0) return 2;
     std::vector<float> logits(static_cast<size_t>(batch) * sequence * vocab);
-    for (size_t i = 0; i < logits.size(); ++i) logits[i] = static_cast<int>(i % 101) - 50;
+    const std::string pattern = argc == 7 ? argv[6] : "periodic";
+    uint32_t state = 1800;
+    for (size_t i = 0; i < logits.size(); ++i) {
+      state = state * 1664525u + 1013904223u;
+      if (pattern == "periodic") logits[i] = static_cast<int>(i % 101) - 50;
+      else if (pattern == "random") logits[i] = (static_cast<int>((state >> 8) % 100000) - 50000) / 1024.0f;
+      else if (pattern == "ascending") logits[i] = i % vocab;
+      else if (pattern == "descending") logits[i] = vocab - 1 - (i % vocab);
+      else return 2;
+    }
     auto rng = std::make_shared<std::default_random_engine>(1800);
     const auto initial_rng = *rng;
     std::vector<std::vector<float>> scores;
@@ -45,9 +66,14 @@ int main(int argc, char** argv) {
     const auto start = std::chrono::steady_clock::now();
     for (int repeat = 0; repeat < rounds; ++repeat) {
       logits[0] = repeat % 7 - 3;
+#ifdef RT_RS_GREEDY_FFI
+      if (sampling) return 2;
+      auto ids = GreedyIds(logits, batch, sequence);
+#else
       auto ids = sampling
           ? litert::lm::TopKTopPSampling(logits, 1, 0.9f, 1.0f, rng, batch, sequence, scores)
-          : litert::lm::TopKTokenIds(logits, 1, batch, sequence);
+          : GreedyIds(logits, batch, sequence);
+#endif
       if (!ids.ok()) return 3;
       for (const auto& row : *ids) for (int id : row) checksum += id;
     }
@@ -76,7 +102,7 @@ int main(int argc, char** argv) {
       if (!(std::cin >> std::hex >> bits >> std::dec)) return 2;
       value = std::bit_cast<float>(bits);
     }
-    auto result = litert::lm::TopKTokenIds(logits, 1, batch, sequence);
+    auto result = GreedyIds(logits, batch, sequence);
     if (!result.ok()) {
       std::cout << "ERR\n";
       continue;

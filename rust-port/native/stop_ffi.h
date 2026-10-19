@@ -34,6 +34,13 @@ int32_t rt_rs_stop_process_rows(RtRsStopDetector*, const int32_t* const*, const 
 int32_t rt_rs_stop_process_snapshot(RtRsStopDetector*, const int32_t*, size_t, uint8_t*, int32_t*, int32_t*, uint8_t*);
 int32_t rt_rs_stop_rows_snapshot(RtRsStopDetector*, const int32_t* const*, const size_t*, size_t, uint8_t*, int32_t*, int32_t*, uint8_t*);
 int32_t rt_rs_stop_snapshot(RtRsStopDetector*, uint8_t*, int32_t*, int32_t*, uint8_t*, size_t);
+// Stateless greedy reduction; input/output allocations must be live, aligned,
+// sized, and mutually disjoint. Input must not be concurrently mutated; output
+// is exclusively writable for this call. No retained pointers or per-call allocation.
+// Batch/sequence are positive; total lengths fit signed 32-bit native indexing.
+// Metadata errors leave outputs unchanged. Unexpected panics return Internal;
+// output atomicity is not promised for an unexpected mid-write panic.
+int32_t rt_rs_greedy_token_ids(const float*, size_t, size_t, size_t, int32_t*, size_t);
 #ifdef __cplusplus
 }
 #endif

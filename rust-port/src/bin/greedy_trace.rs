@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() == 6 {
+    if args.len() == 6 || args.len() == 7 {
         assert_eq!(args[1], "reduction");
         let batch = NonZeroUsize::new(args[2].parse().unwrap()).unwrap();
         let sequence = NonZeroUsize::new(args[3].parse().unwrap()).unwrap();
@@ -19,7 +19,20 @@ fn main() {
             .unwrap()
             .checked_mul(vocab)
             .unwrap();
-        let mut logits: Vec<f32> = (0..count).map(|i| (i % 101) as f32 - 50.0).collect();
+        let pattern = args.get(6).map(String::as_str).unwrap_or("periodic");
+        let mut state = 1800u32;
+        let mut logits: Vec<f32> = (0..count)
+            .map(|i| {
+                state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                match pattern {
+                    "periodic" => (i % 101) as f32 - 50.0,
+                    "random" => (((state >> 8) % 100000) as f32 - 50000.0) / 1024.0,
+                    "ascending" => (i % vocab) as f32,
+                    "descending" => (vocab - 1 - i % vocab) as f32,
+                    _ => panic!("unknown input pattern"),
+                }
+            })
+            .collect();
         let mut checksum = 0usize;
         let start = std::time::Instant::now();
         for repeat in 0..rounds {

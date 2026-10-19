@@ -94,7 +94,7 @@ pub fn greedy_token_ids(
         for _ in 0..sequence_size {
             // Validated shape guarantees every end is at most logits.len().
             let end = offset + vocab_size;
-            row.push(max_element(&logits[offset..end]));
+            row.push(greedy_token_id(&logits[offset..end]));
             offset = end;
         }
         output.push(row);
@@ -129,8 +129,11 @@ fn tile_max(tile: &[f32]) -> f32 {
     maximum
 }
 
-/// Literal comparison ordering of the reference's `MaxElement`.
-fn max_element(logits: &[f32]) -> usize {
+/// Select one index without allocating, preserving the reference `MaxElement`
+/// comparison order, NaN masking and first-tie behavior. Empty input returns 0.
+/// See [`greedy_token_ids`] for the complete semantic contract.
+#[must_use]
+pub fn greedy_token_id(logits: &[f32]) -> usize {
     let Some(&first) = logits.first() else {
         return 0;
     };
@@ -245,7 +248,11 @@ mod tests {
             let mut logits = vec![-3.0; length];
             for peak in 0..length {
                 logits[peak] = 2.0;
-                assert_eq!(max_element(&logits), peak, "length {length}, peak {peak}");
+                assert_eq!(
+                    greedy_token_id(&logits),
+                    peak,
+                    "length {length}, peak {peak}"
+                );
                 logits[peak] = -3.0;
             }
         }
@@ -257,9 +264,9 @@ mod tests {
             let mut logits = vec![-1.0; 257];
             logits[first] = 9.0;
             logits[second] = 9.0;
-            assert_eq!(max_element(&logits), first);
+            assert_eq!(greedy_token_id(&logits), first);
         }
-        assert_eq!(max_element(&[5.0; 257]), 0);
+        assert_eq!(greedy_token_id(&[5.0; 257]), 0);
     }
 
     #[test]
@@ -267,23 +274,23 @@ mod tests {
         for first in [-0.0, 0.0] {
             let mut logits = vec![-first; 257];
             logits[0] = first;
-            assert_eq!(max_element(&logits), 0);
+            assert_eq!(greedy_token_id(&logits), 0);
         }
         let mut logits = vec![-1.0; 257];
         logits[7] = -0.0;
         logits[8] = 0.0;
         logits[128] = 0.0;
-        assert_eq!(max_element(&logits), 7);
+        assert_eq!(greedy_token_id(&logits), 7);
     }
 
     #[test]
     fn infinities_preserve_first_maximum() {
-        assert_eq!(max_element(&[f32::NEG_INFINITY; 257]), 0);
+        assert_eq!(greedy_token_id(&[f32::NEG_INFINITY; 257]), 0);
         for peak in [0, 7, 127, 128, 256] {
             let mut logits = vec![f32::NEG_INFINITY; 257];
             logits[peak] = f32::INFINITY;
             logits[256] = f32::INFINITY;
-            assert_eq!(max_element(&logits), peak);
+            assert_eq!(greedy_token_id(&logits), peak);
         }
     }
 
@@ -292,17 +299,17 @@ mod tests {
         for length in [1, 127, 128, 129, 256, 257] {
             let mut logits = vec![f32::INFINITY; length];
             logits[0] = f32::NAN;
-            assert_eq!(max_element(&logits), 0, "length {length}");
+            assert_eq!(greedy_token_id(&logits), 0, "length {length}");
         }
     }
 
     #[test]
     fn scalar_nan_candidates_are_ignored() {
-        assert_eq!(max_element(&[0.0, f32::NAN, 3.0, f32::NAN, 2.0]), 2);
+        assert_eq!(greedy_token_id(&[0.0, f32::NAN, 3.0, f32::NAN, 2.0]), 2);
         let mut logits = vec![0.0; 130];
         logits[128] = f32::NAN;
         logits[129] = 4.0;
-        assert_eq!(max_element(&logits), 129);
+        assert_eq!(greedy_token_id(&logits), 129);
     }
 
     #[test]
@@ -311,7 +318,7 @@ mod tests {
         logits[2] = f32::NAN;
         logits[10] = f32::INFINITY;
         logits[3] = 5.0;
-        assert_eq!(max_element(&logits), 3);
+        assert_eq!(greedy_token_id(&logits), 3);
     }
 
     #[test]
@@ -320,7 +327,7 @@ mod tests {
         logits[1] = 10.0;
         logits[128] = f32::NAN;
         logits[129] = f32::INFINITY;
-        assert_eq!(max_element(&logits), 1);
+        assert_eq!(greedy_token_id(&logits), 1);
     }
 
     #[test]
@@ -328,7 +335,7 @@ mod tests {
         let mut logits = vec![0.0; 128];
         logits[8] = f32::NAN;
         logits[16] = 9.0;
-        assert_eq!(max_element(&logits), 16);
+        assert_eq!(greedy_token_id(&logits), 16);
     }
 
     #[test]
@@ -337,7 +344,7 @@ mod tests {
         logits[1] = f32::NAN;
         logits[9] = 5.0; // Hidden in lane 1, but first equal value in the tile.
         logits[10] = 5.0; // Visible in lane 2 and selected by the reduction.
-        assert_eq!(max_element(&logits), 9);
+        assert_eq!(greedy_token_id(&logits), 9);
     }
 
     #[test]
@@ -346,8 +353,8 @@ mod tests {
         logits[1] = f32::NAN;
         logits[9] = 10.0;
         logits[2] = 5.0;
-        assert_eq!(max_element(&logits[..127]), 9); // Scalar remainder only.
-        assert_eq!(max_element(&logits), 2); // Eight-lane reduction.
+        assert_eq!(greedy_token_id(&logits[..127]), 9); // Scalar remainder only.
+        assert_eq!(greedy_token_id(&logits), 2); // Eight-lane reduction.
     }
 
     #[test]
@@ -355,12 +362,12 @@ mod tests {
         for bits in [0x7fc0_0001, 0xffc0_0001, 0x7f80_0001, 0xff80_0001] {
             let nan = f32::from_bits(bits);
             assert!(nan.is_nan());
-            assert_eq!(max_element(&[nan, f32::INFINITY]), 0);
+            assert_eq!(greedy_token_id(&[nan, f32::INFINITY]), 0);
             let mut logits = vec![0.0; 128];
             logits[1] = nan;
             logits[9] = f32::INFINITY;
             logits[2] = 4.0;
-            assert_eq!(max_element(&logits), 2);
+            assert_eq!(greedy_token_id(&logits), 2);
         }
     }
 

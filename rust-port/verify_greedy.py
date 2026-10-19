@@ -84,6 +84,16 @@ def main():
                 (TARGET / 'failed-greedy-trace.txt').write_text(cases[index])
                 raise AssertionError(f'Case {index}: C++={left}, Rust={right}')
         raise AssertionError('Output line count mismatch')
+    if os.environ.get('RT_RS_GREEDY_FFI') == '1':
+        run(['cargo', 'test', '--manifest-path', PORT / 'ffi/Cargo.toml', '--locked', '--offline'])
+        run(['cargo', 'build', '--release', '--manifest-path', PORT / 'ffi/Cargo.toml',
+             '--target-dir', TARGET / 'ffi', '--locked', '--offline'])
+        native = TARGET / 'native-greedy-reference'
+        run([cpp, '-std=c++20', '-O3', '-DNDEBUG', *extra_flags, '-DRT_RS_GREEDY_FFI', '-I', ROOT,
+             PORT / 'tests/greedy_reference.cc', PORT / 'native/greedy_rust.cc',
+             TARGET / 'ffi/release/librt_rs_stop_ffi.a', '-o', native, *flags, '-ldl', '-lpthread', '-lm'])
+        if run([native], input=inputs) != expected:
+            raise AssertionError('Native-to-Rust greedy boundary differs from pinned C++')
     report = {'baseline': CURRENT_MAIN if current_main else BASELINE,
               'compatibility_baseline': BASELINE, 'cases': len(cases),
               'input_sha256': hashlib.sha256(inputs.encode()).hexdigest(),
@@ -92,6 +102,7 @@ def main():
               'cxx': run([cpp, '--version']).splitlines()[0],
               'extra_cxxflags': extra_flags,
               'abseil': run(['pkg-config', '--modversion', 'absl_status']).strip(),
+              'native_boundary_checked': os.environ.get('RT_RS_GREEDY_FFI') == '1',
               'scope': 'TopKTokenIds k=1; positive shapes within C++ integer range; no runtime integration'}
     (PORT / 'greedy-results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

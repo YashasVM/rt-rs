@@ -18,10 +18,12 @@ from datetime import datetime, timezone
 from verify import CURRENT_MAIN, PORT, ROOT, TARGET, run
 
 SOURCES = ['src/greedy.rs', 'src/bin/greedy_trace.rs', 'tests/greedy_reference.cc',
-           'benchmark_greedy.py']
+           'benchmark_greedy.py', 'ffi/src/lib.rs', 'native/greedy_rust.h',
+           'native/greedy_rust.cc', 'native/stop_ffi.h']
 BINARIES = {'cpp_reduction': TARGET / 'greedy-reference',
             'cpp_sampling': TARGET / 'greedy-reference',
-            'rust_reduction': TARGET / 'release/greedy-trace'}
+            'rust_reduction': TARGET / 'release/greedy-trace',
+            'native_rust_reduction': TARGET / 'native-greedy-reference'}
 
 
 def hashes():
@@ -31,10 +33,11 @@ def hashes():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--phase', choices=['build', 'run', 'all'], default='all')
+    parser.add_argument('--pattern', choices=['periodic', 'random', 'ascending', 'descending'], default='periodic')
     args = parser.parse_args()
     build_path = TARGET / 'greedy-bench-build.json'
     if args.phase in ('build', 'all'):
-        env = dict(os.environ, RT_RS_CURRENT_MAIN='1')
+        env = dict(os.environ, RT_RS_CURRENT_MAIN='1', RT_RS_GREEDY_FFI='1')
         run(['python3', PORT / 'verify_greedy.py'], env=env)
         cpp = os.environ.get('CXX', 'c++')
         flags = shlex.split(run(['pkg-config', '--cflags', '--libs', '--static',
@@ -57,8 +60,8 @@ def main():
     for name, expected in report['binary_sha256'].items():
         assert hashlib.sha256((PORT / name).read_bytes()).hexdigest() == expected
     report.update({'measurement_utc': datetime.now(timezone.utc).isoformat(),
-                   'platform': platform.platform(),
-                   'scope': 'Finite deterministic logits; full native k=1 sampling versus native/Rust reduction. Not equivalent complete output APIs, not model inference or native-to-Rust integration.',
+                   'platform': platform.platform(), 'input_pattern': args.pattern,
+                   'scope': 'Finite deterministic logits; full native k=1 sampling versus native/Rust reduction. Not equivalent complete output APIs; native-to-Rust standalone wrapper included, not model inference or production integration.',
                    'timing_status': 'Provisional shared-host timings; no affinity, thermal or frequency control.',
                    'samples': [], 'allocations': []})
     for vocab in (32768, 131072, 262144):
@@ -69,10 +72,10 @@ def main():
             for repeat in range(7):
                 order = list(BINARIES)
                 # Rotate starting candidate to reduce consistent ordering bias.
-                order = order[repeat % 3:] + order[:repeat % 3]
+                order = order[repeat % len(order):] + order[:repeat % len(order)]
                 for name in order:
                     mode = 'sampling' if name == 'cpp_sampling' else 'reduction'
-                    ns, checksum = map(int, run([BINARIES[name], mode, batch, sequence, vocab, rounds]).split())
+                    ns, checksum = map(int, run([BINARIES[name], mode, batch, sequence, vocab, rounds, args.pattern]).split())
                     checksums.add(checksum)
                     if repeat >= 2:
                         samples[name].append(ns / (rounds * batch * sequence))
