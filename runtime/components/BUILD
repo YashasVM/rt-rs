@@ -216,6 +216,13 @@ config_setting(
 cc_test(
     name = "top_p_cpu_sampler_test",
     srcs = ["top_p_cpu_sampler_test.cc"],
+    # --wrap must see the adapter's unresolved ABI call at the executable link.
+    # cc_test otherwise prefers shared libraries, whose calls it cannot rewrite.
+    # Keep this test-only and preserve default linkage on every other path.
+    linkstatic = select({
+        ":sampler_call_proof_linux_rust": True,
+        "//conditions:default": False,
+    }),
     local_defines = select({
         ":sampler_call_proof_linux_rust": [
             "LITERTLM_TEST_LINUX_FP16_CALL_PROOF",

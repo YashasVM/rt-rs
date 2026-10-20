@@ -1,0 +1,28 @@
+{
+  "date_utc": "2026-10-20",
+  "commit": "e63d16f3d8e07e2db18ef8cab03950ff126b3067",
+  "run_url": "https://github.com/YashasVM/rt-rs/actions/runs/39342343881",
+  "native_off": {
+    "job_id": 118366658690,
+    "passed": 20,
+    "total": 20,
+    "bazel_elapsed_seconds": 1444.965,
+    "symbol_absence": "passed"
+  },
+  "rust_on": {
+    "job_id": 118366658397,
+    "passed": 19,
+    "total": 20,
+    "bazel_elapsed_seconds": 1930.155,
+    "failed_test": "Fp16SamplerParityTest.ActualRustAbiInvocationAndNativeFallbacks",
+    "positive_expected_count": 1,
+    "positive_observed_count": 0,
+    "positive_failures": 6,
+    "linkage_gate": "skipped after test failure"
+  },
+  "notes": [
+    "Functional parity alone does not establish invocation.",
+    "Preserve positive assertions and diagnose observer linkage before claiming optimized path execution.",
+    "No production behavior change justified by this observer failure."
+  ]
+}

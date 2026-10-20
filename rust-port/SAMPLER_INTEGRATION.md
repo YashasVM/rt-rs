@@ -156,5 +156,33 @@ A lightweight cloud smoke extracted the exact wrapper into a separate-TU caller,
 linked it with the existing genuine Rust static archive, and verified one call,
 the expected ID, and both defined wrapper/real symbols. That validates the
 linker seam only. The full 20-test real TensorBuffer OFF/ON hosted matrix is
-still required; no result from that new matrix is claimed here. No model was
+still required for the repaired test link described below. No model was
 loaded, and this does not establish model/device invocation or performance.
+
+The first hosted invocation run (39342343881 at e63d16f3) passed native OFF
+20/20, but enabled ON passed only 19/20: all six positive invocation assertions
+observed zero. The positive control correctly rejected that result; output
+parity alone did not prove invocation. Bazel `cc_test` defaults to dynamic
+linking, and executable `--wrap` cannot rewrite calls originating in an already
+linked shared library. The observed failure is consistent with that
+test-instrumentation link-graph issue, not proof of a runtime applicability
+failure; the repaired hosted run must confirm the diagnosis.
+
+A controlled cloud reproduction used the same compiled C++ caller and genuine
+Rust static archive with both link layouts. A shared caller returned the correct
+ID with zero wrapper calls; the static caller returned the same ID with exactly
+one wrapper call. The shared result held both when Rust was linked into the
+shared library and when its ordinary ABI symbol was exported by the executable.
+Disassembly confirmed the static caller calls `__wrap` directly. The earlier
+static-only smoke did not cover Bazel's default shared-library layout.
+
+The repair sets `linkstatic=True` only for this Linux Rust-enabled test,
+bringing the adapter's unresolved ABI reference into the executable link where
+`--wrap` can intercept it. Native OFF and other platforms retain their default
+link modes. This is mostly-static user-library linkage, not a fully static
+system binary. No production target, positive assertion, or workflow gate is
+changed. Hosted validation of the repaired matrix remains pending.
+
+Linker behavior references:
+- https://bazel.build/reference/be/c-cpp#cc_test.linkstatic
+- https://sourceware.org/binutils/docs/ld/Options.html#index-_002d_002dwrap_003dsymbol
