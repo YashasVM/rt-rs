@@ -10,6 +10,9 @@ sampler tests passed 19/19 with the option OFF and ON in hosted Linux run
 because an upstream shared library was still a Git LFS pointer; its checked-object
 repair passed final link and bounded help in run 39339048193 at 58f83cce.
 A successful help smoke is not inference.
+The later real sampler run 39346233908 passed 20/20 in both modes and
+observed actual eligible Rust ABI calls plus zero-call fallbacks in a Linux
+test-only instrumented binary. This does not establish model/device invocation.
 See [integration evidence and boundaries](SAMPLER_INTEGRATION.md).
 
 Evidence currently covers Bazel/Linux only. CMake, Android artifacts, final

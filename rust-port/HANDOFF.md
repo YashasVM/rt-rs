@@ -116,3 +116,14 @@ static-LiteRT dependency check and bounded help startup. Build: 4971 actions,
 consumer removal. Same-head Rust checks passed. This is not model inference,
 sampling invocation-count, Android or speed evidence. Next use the documented
 paired device/model protocol once the relevant artifacts/access are approved.
+
+## Actual-call validation checkpoint
+
+Run 39346233908 at 21fc6680 passed OFF20/20 and ON20/20 real sampler tests,
+including actual Rust ABI entry counts: eligible1, fallback/FP32zero, invalid
+score-shape1 to preserve validation ordering. Native-OFF symbol absence passed.
+Initial run39342343881 failed the positive control because executable --wrap
+could not observe already-linked shared-library calls. Genuine shared/static
+reproduction and independent review confirmed a test-only Linux-ON linkstatic
+correction; production and assertions stayed unchanged. Both failure and success
+reports are retained. No model/device performance claim follows from this.

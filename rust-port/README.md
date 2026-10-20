@@ -487,3 +487,15 @@ those contracts. Keep the original runtime available as a reference and fallback
 
 This port derives from The ODML Authors' Apache-2.0 source. See the upstream
 `LICENSE` retained at the fork root. Translated source retains attribution.
+
+## Real sampler invocation proof
+
+A Linux test-only ABI observer now forwards to the genuine Rust function and
+checks actual call counts, not merely eligibility or symbol presence. Corrected
+[run 39346233908](https://github.com/YashasVM/rt-rs/actions/runs/39346233908)
+at `21fc6680` passed 20/20 real TensorBuffer tests in native OFF and Rust ON.
+Enabled eligible cases enter exactly once; FP32 and fallback cases enter zero
+times. Native-OFF symbol absence also passes. The initial observer failure and
+its test-only static-link correction are retained in integration evidence.
+Shipping production targets, ABI and native default remain unchanged. Model
+execution, Android and end-to-end speed remain unvalidated.

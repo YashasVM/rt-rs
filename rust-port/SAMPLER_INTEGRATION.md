@@ -125,7 +125,7 @@ model/device performance remain separate gates. See the future
 [device validation protocol](DEVICE_VALIDATION.md) for paired correctness,
 actual path invocation and end-to-end measurements.
 
-## Test-only ABI invocation gate (validation pending)
+## Test-only ABI invocation gate
 
 The real sampler test now contains `ActualRustAbiInvocationAndNativeFallbacks`.
 On Linux with the Rust option enabled, only that test executable links with
@@ -181,7 +181,15 @@ bringing the adapter's unresolved ABI reference into the executable link where
 `--wrap` can intercept it. Native OFF and other platforms retain their default
 link modes. This is mostly-static user-library linkage, not a fully static
 system binary. No production target, positive assertion, or workflow gate is
-changed. Hosted validation of the repaired matrix remains pending.
+changed. Corrected hosted run 39346233908 at 21fc6680 passed 20/20 tests
+in BOTH configurations, including the enabled exact-one positive controls and
+zero fallback/FP32 assertions. Invalid-score-output still records exactly one
+entry before its expected error. Native-OFF symbol absence and enabled symbol
+presence passed. Build times were 1427.847s OFF and 1360.053s ON, 7.1 GB each;
+separate-runner build durations are not runtime-performance comparisons. See
+`benchmarks/hosted-invocation-proof.json` and the retained failed-control report.
+This establishes invocation for the tested real TensorBuffer sampler cases,
+not model inference or Android/device invocation.
 
 Linker behavior references:
 - https://bazel.build/reference/be/c-cpp#cc_test.linkstatic

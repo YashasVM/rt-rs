@@ -1,0 +1,37 @@
+{
+  "date_utc": "2026-10-20",
+  "commit": "21fc668060fa806fab187002e423067c9430829d",
+  "run_url": "https://github.com/YashasVM/rt-rs/actions/runs/39346233908",
+  "native_off": {
+    "job_id": 118379392100,
+    "passed": 20,
+    "total": 20,
+    "bazel_elapsed_seconds": 1427.847,
+    "symbol_absence": "passed",
+    "output_size": "7.1G"
+  },
+  "rust_on": {
+    "job_id": 118379391660,
+    "passed": 20,
+    "total": 20,
+    "bazel_elapsed_seconds": 1360.053,
+    "symbol_presence": "passed",
+    "output_size": "7.1G",
+    "invocation_test": "Fp16SamplerParityTest.ActualRustAbiInvocationAndNativeFallbacks",
+    "invocation_test_result": "passed",
+    "positive_cases_expected_and_observed": 1,
+    "fallback_cases_expected_and_observed": 0
+  },
+  "assertions": {
+    "eligible": "Exactly one actual ABI entry for FP16 k1 at temperature0/1 with approximate scores or IDs only; exact-score flag with no score output also1",
+    "fallback": "Zero entries for FP32 reference, exact-score output, k2, invalid k/p/temperature, NaN p and early invalid shapes",
+    "error_precedence": "Invalid score shape still enters once before native post-sampling score validation"
+  },
+  "notes": [
+    "Test-only linker observer forwards unchanged to genuine Rust ABI.",
+    "Linux-ON cc_test uses user-library static linkage so --wrap observes caller references; production targets unchanged.",
+    "Native-OFF zero counter alone is vacuous; independent symbol-absence gate establishes no Rust backend.",
+    "Preserved initial failed control in hosted-invocation-observer-failure.json.",
+    "No model/device inference or runtime speed measured; separate-runner build durations are not a performance comparison."
+  ]
+}
