@@ -1,0 +1,123 @@
+name: Rust port genuine model CPU diagnostic
+
+on:
+  push:
+    branches: [rust/stop-token-detector-v0.18.0]
+    # One bounded native-baseline experiment; do not trigger on ordinary code.
+    paths: [.github/workflows/rust-model-probe.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-model-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-cpu-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Record immutable source and hosted tools
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD
+          echo 'This tests fork native OFF, not unmodified upstream main.'
+          test "$(cat .bazelversion)" = 7.6.1
+          command -v bazelisk
+          clang++ --version
+          python3 --version
+          free -h
+          df -h
+      - name: Materialize pinned upstream Linux x86-64 constraint provider
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          # Fetch only the official LFS object required by this CPU engine link.
+          # Pin to the port's upstream baseline, not a moving branch or all platforms.
+          upstream_revision=b2f686e2ed4718fb84ec398a61dd59ca0f0aff27
+          dependency=prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so
+          expected_sha256=f5970d283f648f15531361bff2ad110d5bcb972563bd560483fc65fffb01f3d3
+          expected_size=22627960
+          # Fail if the checkout's dependency pin changes without updating this step.
+          printf 'version https://git-lfs.github.com/spec/v1\noid sha256:%s\nsize %s\n' \
+            "$expected_sha256" "$expected_size" | cmp - "$dependency"
+          download="$RUNNER_TEMP/libGemmaModelConstraintProvider.so"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 180 --retry 2 --retry-max-time 300 --max-filesize 22627960 \
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$upstream_revision/$dependency" \
+            --output "$download"
+          test "$(stat --printf='%s' "$download")" = "$expected_size"
+          printf '%s  %s\n' "$expected_sha256" "$download" | sha256sum --check --strict
+          readelf --file-header "$download" > "$RUNNER_TEMP/constraint-provider-elf.txt"
+          cat "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Class:[[:space:]]+ELF64$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Type:[[:space:]]+DYN \(Shared object file\)$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          grep -E 'Machine:[[:space:]]+Advanced Micro Devices X86-64$' "$RUNNER_TEMP/constraint-provider-elf.txt"
+          install -m 0644 "$download" "$dependency"
+      - name: Build static diagnostic native baseline only
+        run: |
+          set -euo pipefail
+          export BAZELISK_HOME="$RUNNER_TEMP/rt-rs-bazelisk"
+          export CC=clang CXX=clang++
+          bazelisk --output_user_root="$RUNNER_TEMP/rt-rs-bazel" build \
+            --config=linux_x86_64 \
+            --@litert//litert/build_common:build_include=cpu_only \
+            --define=rt_rs_fp16_greedy=false \
+            --jobs=2 --local_ram_resources=6144 --verbose_failures \
+            //rust-port/model_probe:probe
+          binary=bazel-bin/rust-port/model_probe/probe
+          nm --defined-only "$binary" > "$RUNNER_TEMP/probe-symbols.txt"
+          grep -F ' T __wrap__ZN6litert2lm13CreateSampler' "$RUNNER_TEMP/probe-symbols.txt"
+          grep -F ' T _ZN6litert2lm13CreateSampler' "$RUNNER_TEMP/probe-symbols.txt"
+          if grep -E ' [Tt] rt_rs_greedy_fp16_token_ids$' "$RUNNER_TEMP/probe-symbols.txt"; then
+            echo 'Native baseline unexpectedly contains experimental Rust FP16 sampler' >&2
+            exit 1
+          fi
+          readelf -d "$binary" > "$RUNNER_TEMP/probe-dynamic.txt"
+          cat "$RUNNER_TEMP/probe-dynamic.txt"
+          if grep -F 'libLiteRt.so' "$RUNNER_TEMP/probe-dynamic.txt"; then
+            echo 'Expected static LiteRT linkage' >&2
+            exit 1
+          fi
+      - name: Acquire explicitly approved public Apache-2.0 model
+        run: |
+          set -euo pipefail
+          # No gated-model login, credentials, new agreements, or persistent cache.
+          model="$RUNNER_TEMP/SmolLM2_135M_Instruct.litertlm"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 300 --retry 2 --retry-max-time 600 --max-filesize 142819328 \
+            'https://huggingface.co/litert-community/SmolLM2-135M-Instruct/resolve/749fc23bc8d7ef89db031d075004289c88f41c2f/SmolLM2_135M_Instruct.litertlm' \
+            --output "$model"
+          test "$(stat --printf='%s' "$model")" = 142819328
+          printf '%s  %s\n' ccdc5c85735743f081b7d44ca309cab569f76c0f2f0e8e163449a63721969c37 "$model" | sha256sum --check --strict
+      - name: Run bounded genuine Conversation inference
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/model-probe-cache"
+          status=0
+          timeout --signal=TERM --kill-after=10s 180s \
+            bazel-bin/rust-port/model_probe/probe \
+            "$RUNNER_TEMP/SmolLM2_135M_Instruct.litertlm" \
+            "$RUNNER_TEMP/model-probe-cache" \
+            > "$RUNNER_TEMP/model-probe.json" 2> "$RUNNER_TEMP/model-probe-stderr.txt" || status=$?
+          cat "$RUNNER_TEMP/model-probe-stderr.txt"
+          cat "$RUNNER_TEMP/model-probe.json"
+          echo "Model probe exit status: $status"
+          test "$status" = 0
+          python3 -I rust-port/model_probe/validate.py "$RUNNER_TEMP/model-probe.json"
+      - name: Report final resource use
+        if: always()
+        run: |
+          free -h
+          df -h
+          if test -d "$RUNNER_TEMP/rt-rs-bazel"; then
+            du -sh "$RUNNER_TEMP/rt-rs-bazel"
+          fi
