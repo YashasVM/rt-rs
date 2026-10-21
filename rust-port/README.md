@@ -185,9 +185,37 @@ its commit field records the parent checkout before the new port commit.
 
 ## Pinned current-main compatibility
 
-The current-main comparison is pinned to upstream LiteRT-LM commit
-`e32526ccbc54fed8d7ba8fbf292c03572fba5081`, observed on 2026-10-19. It is not a
-claim of compatibility with future moving main. Fetch the exact object, then run:
+### Latest source-identity audit (2026-10-21)
+
+Upstream main was audited at `13c208f1cf401bb024bd993f1debb00e90fc5bfb`.
+The native `runtime/components/stop_token_detector.{h,cc}`,
+`sampling_cpu_util.{h,cc}`, and `top_p_cpu_sampler.cc` are all byte-identical
+to the v0.18.0 baseline `b2f686e2ed4718fb84ec398a61dd59ca0f0aff27`.
+`benchmarks/upstream-audit-2026-10-21.json` records SHA-256 hashes, byte lengths,
+and Git diff identity for these five files against both baseline and the
+historical main pin below. This is source identity, not a fresh native C++/Rust
+parity run, a rebase, or proof of whole-runtime compatibility. At fork checkpoint
+`19ec82ece59abd3af2e21962a1c2033f7fc6dadf`, the fork was 25 commits ahead and
+242 behind this latest-main pin; these counts describe that checkpoint only.
+
+Reproduce the audit from already available local Git objects:
+
+```sh
+python3 rust-port/audit_upstream.py
+```
+
+The script only reads Git objects and prints JSON. It fails clearly if a required
+object is missing, never fetches (including lazy fetch), and does not alter the
+checkout, build, or run benchmarks. A changed latest-main file relative to the
+baseline also produces a nonzero exit status. These are fixed pins, not a claim
+about future moving main.
+
+### Historical main parity and retained rollback extension
+
+The earlier current-main comparison remains pinned to
+`e32526ccbc54fed8d7ba8fbf292c03572fba5081`, observed on 2026-10-19.
+`RT_RS_CURRENT_MAIN=1` still selects this historical pin, not the 2026-10-21
+main pin. To reproduce those historical checks, fetch the exact object, then run:
 
 ```sh
 git fetch https://github.com/google-ai-edge/LiteRT-LM.git e32526ccbc54fed8d7ba8fbf292c03572fba5081
@@ -195,24 +223,28 @@ RT_RS_CURRENT_MAIN=1 python3 rust-port/verify.py
 RT_RS_CURRENT_MAIN=1 python3 rust-port/verify_greedy.py
 ```
 
-The current-main stop detector adds singleton stop-token rollback marking.
-`mark_for_rollback` and `ends_with_rollback_token` now preserve its behavior:
-marks survive reset, per-item flags clear on reset or the next processed token,
+That historical stop detector added singleton stop-token rollback marking.
+Upstream subsequently reverted the addition in
+`be4d4953a71d550f27778f6335fc85d803e0e55b`; it is absent from the latest main
+pin above. Rust retains `mark_for_rollback` and `ends_with_rollback_token` as
+historically verified extensions, not as requirements of latest main. Marks
+survive reset, per-item flags clear on reset or the next processed token,
 marking is not retroactive, duplicate additions retain marks, and the last
 simultaneous match controls the flag. Invalid input leaves all state untouched.
 This records the rollback decision only; it does not manipulate an executor or
-KV cache. The current-main greedy source/header are byte-identical to v0.18.0;
-the main-mode verifier checks that identity before testing.
+KV cache. The historical-main greedy source/header are byte-identical to
+v0.18.0; the main-mode verifier checks that identity before testing.
 
-The main detector verifier materializes the exact pinned source/header and
-status-macro files under target/, without editing upstream tracked code. It
-compares rollback flags in addition to all previously observed state. Both
+The main-mode detector verifier materializes the exact historical source/header
+and status-macro files under target/, without editing upstream tracked code.
+It compares rollback flags in addition to all previously observed state. Both
 nested and flat synthetic microbenchmarks run serially with equal checksums.
-The expanded compatibility run passes 582 traces / 60,736 operations at
-v0.18.0 and 713 traces / 86,492 operations at pinned main, plus 30 Rust unit
+The earlier recorded compatibility run passed 582 traces / 60,736 operations at
+v0.18.0 and 713 traces / 86,492 operations at historical main, plus 30 Rust unit
 tests. Reports are `benchmarks/cloud-stop-nested.json`,
 `benchmarks/cloud-stop-main.json`, and `benchmarks/cloud-greedy-main.json`.
-Use `RT_RS_SKIP_BENCHMARKS=1` for parity-only detector verification.
+These are historical reports, not newly executed parity results for the latest
+main pin. Use `RT_RS_SKIP_BENCHMARKS=1` for parity-only detector verification.
 Nested benchmarks preallocate caller row containers in both implementations;
 the C++ detector still flattens to a temporary vector per call, while Rust
 processes validated rows directly. No allocator instrumentation or whole-runtime

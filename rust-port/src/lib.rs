@@ -19,7 +19,8 @@ pub enum Error {
 }
 
 /// Incremental token-ID stop detection with LiteRT-LM v0.18.0 semantics
-/// plus singleton rollback marking from pinned current main (see README).
+/// plus singleton rollback marking from historical main e32526cc (see README).
+/// Latest audited main 13c208f1 removed that extension; it remains available here.
 ///
 /// Each call consumes exactly one token per batch item. This owns all state
 /// and does not call native code. Counts use usize instead of C++ signed int.

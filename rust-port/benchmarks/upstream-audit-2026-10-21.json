@@ -1,0 +1,109 @@
+{
+  "audit_date": "2026-10-21",
+  "audit_kind": "pinned Git source identity; not a fresh C++/Rust parity run",
+  "pins": {
+    "baseline": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
+    "historical_main": "e32526ccbc54fed8d7ba8fbf292c03572fba5081",
+    "latest_main": "13c208f1cf401bb024bd993f1debb00e90fc5bfb"
+  },
+  "fork_checkpoint": "19ec82ece59abd3af2e21962a1c2033f7fc6dadf",
+  "fork_vs_latest_main": {
+    "ahead": 25,
+    "behind": 242
+  },
+  "scope": "Only the five listed native files, not whole-runtime compatibility",
+  "all_latest_files_identical_to_baseline": true,
+  "files": [
+    {
+      "path": "runtime/components/stop_token_detector.h",
+      "sha256": {
+        "baseline": "95aceed77db41c8383a08c942af56066a8d962cf27838b31c0fbf557b50872a9",
+        "historical_main": "a0437aced986f010b83963bd916a587f875129e5fccd26bb84cd394ea3ae15e9",
+        "latest_main": "95aceed77db41c8383a08c942af56066a8d962cf27838b31c0fbf557b50872a9"
+      },
+      "byte_lengths": {
+        "baseline": 5361,
+        "historical_main": 6454,
+        "latest_main": 5361
+      },
+      "latest_equals_baseline": true,
+      "latest_equals_historical_main": false,
+      "baseline_to_latest_git_diff_empty": true,
+      "historical_to_latest_git_diff_empty": false
+    },
+    {
+      "path": "runtime/components/stop_token_detector.cc",
+      "sha256": {
+        "baseline": "687196090f9df6322983550b2c14aa0d1e72fc5eac8cc6ccf3e1db1736cfad5a",
+        "historical_main": "917e7db6e2d9071f0e533f6ca6788fcfad7c97acf30dc2d715456f5affb4e78c",
+        "latest_main": "687196090f9df6322983550b2c14aa0d1e72fc5eac8cc6ccf3e1db1736cfad5a"
+      },
+      "byte_lengths": {
+        "baseline": 6717,
+        "historical_main": 7378,
+        "latest_main": 6717
+      },
+      "latest_equals_baseline": true,
+      "latest_equals_historical_main": false,
+      "baseline_to_latest_git_diff_empty": true,
+      "historical_to_latest_git_diff_empty": false
+    },
+    {
+      "path": "runtime/components/sampling_cpu_util.h",
+      "sha256": {
+        "baseline": "63fa571fe5ba658c2ddb8b9de96e46e84a5e8943e9b83201736cb5ad42114a03",
+        "historical_main": "63fa571fe5ba658c2ddb8b9de96e46e84a5e8943e9b83201736cb5ad42114a03",
+        "latest_main": "63fa571fe5ba658c2ddb8b9de96e46e84a5e8943e9b83201736cb5ad42114a03"
+      },
+      "byte_lengths": {
+        "baseline": 3755,
+        "historical_main": 3755,
+        "latest_main": 3755
+      },
+      "latest_equals_baseline": true,
+      "latest_equals_historical_main": true,
+      "baseline_to_latest_git_diff_empty": true,
+      "historical_to_latest_git_diff_empty": true
+    },
+    {
+      "path": "runtime/components/sampling_cpu_util.cc",
+      "sha256": {
+        "baseline": "85c4293dd8185c1f9a2c653e7ae287b6293d5bbe24ee0c6fb17865e36cb98e8c",
+        "historical_main": "85c4293dd8185c1f9a2c653e7ae287b6293d5bbe24ee0c6fb17865e36cb98e8c",
+        "latest_main": "85c4293dd8185c1f9a2c653e7ae287b6293d5bbe24ee0c6fb17865e36cb98e8c"
+      },
+      "byte_lengths": {
+        "baseline": 15077,
+        "historical_main": 15077,
+        "latest_main": 15077
+      },
+      "latest_equals_baseline": true,
+      "latest_equals_historical_main": true,
+      "baseline_to_latest_git_diff_empty": true,
+      "historical_to_latest_git_diff_empty": true
+    },
+    {
+      "path": "runtime/components/top_p_cpu_sampler.cc",
+      "sha256": {
+        "baseline": "21280a698aa51e2d5fcba8d574b0eacb22e8224ccc16f03986f3a1b052aa84c2",
+        "historical_main": "21280a698aa51e2d5fcba8d574b0eacb22e8224ccc16f03986f3a1b052aa84c2",
+        "latest_main": "21280a698aa51e2d5fcba8d574b0eacb22e8224ccc16f03986f3a1b052aa84c2"
+      },
+      "byte_lengths": {
+        "baseline": 9788,
+        "historical_main": 9788,
+        "latest_main": 9788
+      },
+      "latest_equals_baseline": true,
+      "latest_equals_historical_main": true,
+      "baseline_to_latest_git_diff_empty": true,
+      "historical_to_latest_git_diff_empty": true
+    }
+  ],
+  "rollback_contract": {
+    "historical_extension": "Singleton rollback marking remains a Rust API extension",
+    "latest_main": "Historical singleton rollback marking is absent; detector equals baseline",
+    "historical_verifier_pin_unchanged": "e32526ccbc54fed8d7ba8fbf292c03572fba5081"
+  },
+  "validation": "Read-only local Git object inspection; no fetch, rebase, build, or benchmark"
+}
